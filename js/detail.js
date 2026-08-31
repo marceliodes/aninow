@@ -20,7 +20,7 @@ function render(item, meta) {
   const malUrl = safeMalUrl(item.malUrl, item.malId);
   const broadcast = localBroadcast(item);
   const broadcastText = broadcast.day === 'Unknown' ? 'Unknown · TBA' : `${broadcast.day} at ${broadcast.time} (local time)`;
-  document.title = `${item.title} — AniNow`;
+  document.title = `${item.title} | AniNow`;
   document.querySelector('meta[name="description"]').content = `${item.title}: score, broadcast information, synopsis, and AniNow rank.`;
   setMeta('property', 'og:title', `${item.title} — AniNow`);
   setMeta('property', 'og:description', item.synopsis || `${item.title}: score, broadcast information, and AniNow rank.`);
