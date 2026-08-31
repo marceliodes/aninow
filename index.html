@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#ff5c8a">
+  <meta name="description" content="A scan-friendly ranking of anime airing now, based on MyAnimeList scores.">
+  <meta property="og:title" content="AniNow — What's airing? See who's on top.">
+  <meta property="og:description" content="Current anime rankings, recently finished titles, and weekly broadcast schedules.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="/assets/og.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="AniNow — What’s airing? See who’s on top.">
+  <meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="AniNow — What's airing? See who's on top."><meta name="twitter:description" content="Current anime rankings, recently finished titles, and weekly broadcast schedules."><meta name="twitter:image" content="/assets/og.png">
+  <title>AniNow — Airing Anime Rankings</title>
+  <link rel="icon" href="/assets/icons/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/main.css">
+  <script type="module" src="/js/rankings.js"></script>
+</head>
+<body data-page="rankings">
+  <a class="skip-link" href="#main">Skip to rankings</a>
+  <header class="site-header" data-header></header>
+  <main id="main">
+    <section class="ranking-hero" aria-labelledby="page-title">
+      <div class="hero-art" aria-hidden="true"></div>
+      <div class="shell hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="live-dot"></span> Current season leaderboard</p>
+          <h1 id="page-title">What’s airing? <span>See who’s on top.</span></h1>
+          <p>Eligible TV, ONA, and OVA titles, ordered by MyAnimeList score.</p>
+        </div>
+        <aside class="freshness" aria-label="Data freshness">
+          <span class="status-line" id="freshness-status">Updating AniNow…</span>
+          <strong id="countdown" aria-label="Time until estimated refresh">--:--</strong>
+          <small id="last-updated">Last update unavailable</small>
+        </aside>
+        <div id="featured" class="featured-grid" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="shell rankings-section" aria-labelledby="rankings-title">
+      <div class="section-heading">
+        <div><p class="kicker">CURRENT + 14-DAY GRACE</p><h2 id="rankings-title">Airing rankings</h2></div>
+        <p id="result-count" class="result-count" aria-live="polite"></p>
+      </div>
+      <form id="ranking-controls" class="controls" role="search">
+        <label class="search-control"><span>Search AniNow</span><input id="search" name="search" type="search" autocomplete="off" placeholder="Title or romaji…"></label>
+        <label><span>Type</span><select id="type-filter" name="type"><option value="all">All types</option><option>TV</option><option>ONA</option><option>OVA</option></select></label>
+        <label><span>Genre</span><select id="genre-filter" name="genre"><option value="all">All genres</option></select></label>
+        <label><span>Airing day</span><select id="day-filter" name="day"><option value="all">All days</option><option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option><option>Unknown</option></select></label>
+        <label><span>Sort by</span><select id="sort" name="sort"><option value="score">Score</option><option value="popularity">Popularity</option><option value="members">Members</option><option value="newest">Newest</option><option value="title">Title</option></select></label>
+        <button class="text-button reset-button" id="reset-controls" type="reset">Reset</button>
+      </form>
+
+      <div id="ranking-state" class="state-box" hidden></div>
+      <div id="ranking-list" class="ranking-list" aria-live="polite" aria-busy="true">
+        <div class="rank-row skeleton-row"></div><div class="rank-row skeleton-row"></div><div class="rank-row skeleton-row"></div><div class="rank-row skeleton-row"></div><div class="rank-row skeleton-row"></div>
+      </div>
+      <div class="load-more-wrap"><button id="load-more" class="primary-button" type="button" hidden>Load 20 more</button></div>
+      <section id="unranked-section" class="unranked-section" aria-labelledby="unranked-title" hidden>
+        <div class="section-heading"><div><p class="kicker">WAITING FOR A MAL SCORE</p><h2 id="unranked-title">Not Ranked Yet</h2></div><p id="unranked-count" class="result-count"></p></div>
+        <div id="unranked-list" class="ranking-list quiet-list"></div>
+      </section>
+    </section>
+  </main>
+  <footer class="site-footer" data-footer></footer>
+</body>
+</html>

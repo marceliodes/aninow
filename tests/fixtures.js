@@ -1,0 +1,18 @@
+export const rawAnime = (overrides = {}) => ({
+  mal_id: 1, title: 'Romaji One', title_english: 'English One', url: 'https://myanimelist.net/anime/1',
+  images: { webp: { large_image_url: 'https://cdn.myanimelist.net/images/anime/1/1.webp' } },
+  score: 8.5, scored_by: 1200, popularity: 100, members: 50000, type: 'TV', status: 'Currently Airing', airing: true,
+  episodes: 12, aired: { from: '2026-07-01T00:00:00+00:00', to: null },
+  broadcast: { day: 'Fridays', time: '23:30', timezone: 'Asia/Tokyo' },
+  studios: [{ name: 'Signal Works' }], genres: [{ name: 'Drama' }], themes: [], demographics: [], explicit_genres: [], rating: 'PG-13 - Teens 13 or older', synopsis: 'A precise fixture synopsis.', season: 'summer', year: 2026,
+  ...overrides
+});
+
+export const normalizedAnime = (overrides = {}) => ({
+  malId: 1, title: 'English One', titleRomaji: 'Romaji One', image: 'https://cdn.myanimelist.net/images/anime/1/1.webp', rank: 1,
+  score: 8.5, scoredBy: 1200, popularity: 100, members: 50000, type: 'TV', studio: 'Signal Works', studios: ['Signal Works'], episodes: 12,
+  status: 'Currently Airing', airing: true, airedFrom: '2026-07-01T00:00:00.000Z', airedTo: null, broadcastDay: 'Fridays', broadcastTime: '23:30', broadcastTimezone: 'Asia/Tokyo', genres: ['Drama'], malUrl: 'https://myanimelist.net/anime/1', graceEndsAt: null,
+  ...overrides
+});
+
+export const meta = { updatedAt: '2026-08-30T10:00:00.000Z', expiresAt: '2026-08-30T10:30:00.000Z', stale: false };

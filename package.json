@@ -1,0 +1,24 @@
+{
+  "name": "aninow",
+  "version": "1.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "WRANGLER_LOG_PATH=/tmp/aninow-wrangler.log npx wrangler pages dev . --port 4174 --local-protocol http",
+    "dev:mock": "WRANGLER_LOG_PATH=/tmp/aninow-wrangler-mock.log npx wrangler pages dev . --port 4174 --local-protocol http --binding ANINOW_DEV_MOCK=1",
+    "test": "node --test tests/unit/*.test.js tests/functions/*.test.js",
+    "test:e2e": "playwright test",
+    "test:e2e:mock": "playwright test --config=playwright.mock.config.js",
+    "test:a11y": "playwright test tests/e2e/accessibility.spec.js",
+    "test:all": "npm test && npm run test:e2e"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.55.0",
+    "wrangler": "^4.32.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

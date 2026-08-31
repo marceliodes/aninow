@@ -1,0 +1,7 @@
+name = "aninow"
+compatibility_date = "2026-08-30"
+pages_build_output_dir = "."
+
+[dev]
+port = 4174
+local_protocol = "http"
