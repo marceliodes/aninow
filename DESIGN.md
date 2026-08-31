@@ -79,7 +79,7 @@ stronger emphasis only for the top three. Avoid huge cards.
 ## Header
 
 Compact navigation: - AniNow + live dot - Rankings - Schedule - About -
-Theme toggle - Refresh
+Theme toggle
 
 Privacy belongs in the footer.
 
@@ -145,7 +145,9 @@ Initial ranked view shows 20; Load More reveals more.
 ## Schedule
 
 Monday--Sunday should be easy to scan. Do not create seven giant
-decorative panels. Entries link to AniNow detail pages.
+decorative panels. Convert valid Japan broadcast times to the visitor's
+local weekday/time and label the detected timezone. Entries link to
+AniNow detail pages.
 
 ## Anime detail
 

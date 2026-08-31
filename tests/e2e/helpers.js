@@ -26,9 +26,9 @@ export const detail = {
   ...dataset[0], synopsis: 'A current series used for deterministic browser testing.', season: 'summer', year: 2026, aniNowRank: 1
 };
 
-export function freshness(stale = false) {
+export function freshness(stale = false, expiresIn = 30 * 60_000) {
   const now = Date.now();
-  return { updatedAt: new Date(now).toISOString(), expiresAt: new Date(now + 30 * 60_000).toISOString(), stale, ...(stale ? { retryAt: new Date(now + 5 * 60_000).toISOString() } : {}) };
+  return { updatedAt: new Date(now).toISOString(), expiresAt: new Date(now + expiresIn).toISOString(), stale, ...(stale ? { retryAt: new Date(now + 5 * 60_000).toISOString() } : {}) };
 }
 
 export async function mockApis(page, { airing = dataset, schedule = dataset.slice(0, 6), detailData = detail, status = 200, stale = false } = {}) {

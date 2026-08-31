@@ -106,7 +106,7 @@ function initializeShell() {
     if (element.content.startsWith('/')) element.content = new URL(element.content, location.origin).href;
   });
   const header = document.querySelector('[data-header]');
-  if (header) header.innerHTML = `<div class="shell header-inner"><a class="brand" href="/index.html" aria-label="AniNow home">AniNow<span class="brand-dot" aria-hidden="true"></span></a><nav class="primary-nav" aria-label="Primary"><a href="/index.html" ${page === 'rankings' ? 'aria-current="page"' : ''}>Rankings</a><a href="/schedule.html" ${page === 'schedule' ? 'aria-current="page"' : ''}>Schedule</a><a href="/about.html" ${page === 'about' ? 'aria-current="page"' : ''}>About</a></nav><div class="header-actions"><button class="icon-button" type="button" data-theme-toggle aria-label="Toggle theme">◐</button>${['rankings', 'schedule', 'anime'].includes(page) ? '<button class="refresh-button" type="button" data-refresh>Refresh</button>' : ''}</div></div>`;
+  if (header) header.innerHTML = `<div class="shell header-inner"><a class="brand" href="/index.html" aria-label="AniNow home">AniNow<span class="brand-dot" aria-hidden="true"></span></a><nav class="primary-nav" aria-label="Primary"><a href="/index.html" ${page === 'rankings' ? 'aria-current="page"' : ''}>Rankings</a><a href="/schedule.html" ${page === 'schedule' ? 'aria-current="page"' : ''}>Schedule</a><a href="/about.html" ${page === 'about' ? 'aria-current="page"' : ''}>About</a></nav><div class="header-actions"><button class="icon-button" type="button" data-theme-toggle aria-label="Toggle theme">◐</button></div></div>`;
   const footer = document.querySelector('[data-footer]');
   if (footer) footer.innerHTML = `<div class="shell footer-inner"><p class="footer-copy"><strong>AniNow</strong> · Anime data provided by MyAnimeList. AniNow is not affiliated with or endorsed by MyAnimeList.</p><nav class="footer-links" aria-label="Footer"><a href="/about.html">About</a><a href="/privacy.html">Privacy</a></nav></div>`;
   const preferred = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -115,10 +115,6 @@ function initializeShell() {
     const theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     applyTheme(theme);
     try { sessionStorage.setItem('aninow-theme', theme); } catch { /* session storage is optional */ }
-  });
-  document.querySelector('[data-refresh]')?.addEventListener('click', event => {
-    event.currentTarget.disabled = true;
-    document.dispatchEvent(new CustomEvent('aninow:refresh'));
   });
 }
 

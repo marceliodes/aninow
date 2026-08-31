@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { dataset, detail, freshness, mockApis } from './helpers.js';
 
+test.use({ timezoneId: 'America/Los_Angeles', locale: 'en-US' });
+
 test('rankings controls, top-three behavior, load more, and links work', async ({ page }) => {
   const upstream = [];
   page.on('request', request => { if (request.url().includes('api.myanimelist.net')) upstream.push(request.url()); });
@@ -13,6 +15,11 @@ test('rankings controls, top-three behavior, load more, and links work', async (
   await expect(page.locator('#ranking-list .rank-row')).toHaveCount(22);
   await expect(page.getByRole('button', { name: 'Load 20 more' })).toBeHidden();
   await expect(page.getByLabel('Type')).toHaveCount(0);
+  for (const name of ['Genre', 'Airing day', 'Sort by']) {
+    const select = page.getByLabel(name);
+    await expect(select).toHaveJSProperty('tagName', 'SELECT');
+    expect(await select.evaluate(element => getComputedStyle(element).appearance)).not.toBe('none');
+  }
   await page.getByLabel('Genre').selectOption('Action');
   await expect(page.locator('#featured')).toBeHidden();
   await expect(page.locator('#ranking-list .rank-row')).toHaveCount(dataset.filter(x => x.genres.includes('Action') && x.score).length);
@@ -50,9 +57,8 @@ test('successful empty dataset has a distinct empty state and no Load More', asy
   await expect(page.getByRole('button', { name: 'Load 20 more' })).toBeHidden();
 });
 
-test('theme survives page navigation for the session and refresh re-requests AniNow', async ({ page }) => {
-  let calls = 0;
-  await page.route('**/api/**', route => { calls += 1; route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: dataset, meta: { updatedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 1800000).toISOString(), stale: false } }) }); });
+test('theme survives page navigation for the session', async ({ page }) => {
+  await page.route('**/api/**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: dataset, meta: freshness() }) }));
   await page.goto('/');
   const initial = await page.locator('html').getAttribute('data-theme');
   await page.getByRole('button', { name: /Use .* theme/ }).click();
@@ -60,9 +66,26 @@ test('theme survives page navigation for the session and refresh re-requests Ani
   expect(changed).not.toBe(initial);
   await page.getByRole('link', { name: 'Schedule' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', changed);
-  const before = calls;
-  await page.getByRole('button', { name: 'Refresh' }).click();
-  await expect.poll(() => calls).toBeGreaterThan(before);
+});
+
+test('manual Refresh is absent on every page', async ({ page }) => {
+  await mockApis(page);
+  for (const path of ['/', '/schedule.html', '/anime.html?id=1', '/about.html', '/privacy.html', '/404.html']) {
+    await page.goto(path);
+    await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toHaveCount(0);
+  }
+});
+
+test('countdown expiry automatically re-requests AniNow data', async ({ page }) => {
+  let calls = 0;
+  await page.route('**/api/airing', route => {
+    calls += 1;
+    const meta = calls === 1 ? freshness(false, 50) : freshness();
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: dataset, meta }) });
+  });
+  await page.goto('/');
+  await expect(page.locator('.featured-card')).toHaveCount(3);
+  await expect.poll(() => calls).toBeGreaterThan(1);
 });
 
 test('friendly ranking error retries and empty filter state is useful', async ({ page }) => {
@@ -101,11 +124,10 @@ test('rankings retain successful data when a later refresh fails', async ({ page
   await page.route('**/api/airing', route => {
     calls += 1;
     if (calls > 1) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Fixture refresh outage.', retryable: true } }) });
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: dataset, meta: freshness() }) });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: dataset, meta: freshness(false, 50) }) });
   });
   await page.goto('/');
   await expect(page.locator('.featured-card')).toHaveCount(3);
-  await page.getByRole('button', { name: 'Refresh' }).click();
   await expect(page.getByRole('heading', { name: 'Latest refresh failed' })).toBeVisible();
   await expect(page.getByText(/last successfully loaded rankings are still shown/)).toBeVisible();
   await expect(page.locator('#ranking-state')).toHaveClass(/compact/);
@@ -118,11 +140,10 @@ test('schedule retains successful data when a later refresh fails', async ({ pag
   await page.route('**/api/schedule', route => {
     calls += 1;
     if (calls > 1) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Fixture refresh outage.', retryable: true } }) });
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: dataset.slice(0, 6), meta: freshness() }) });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: dataset.slice(0, 6), meta: freshness(false, 50) }) });
   });
   await page.goto('/schedule.html');
   await expect(page.locator('.schedule-entry')).toHaveCount(6);
-  await page.getByRole('button', { name: 'Refresh' }).click();
   await expect(page.getByRole('heading', { name: 'Latest refresh failed' })).toBeVisible();
   await expect(page.getByText(/last successfully loaded schedule is still shown/)).toBeVisible();
   await expect(page.locator('.schedule-entry')).toHaveCount(6);
@@ -134,11 +155,10 @@ test('detail retains successful data when a later refresh fails', async ({ page 
   await page.route('**/api/anime/1', route => {
     calls += 1;
     if (calls > 1) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: { message: 'Fixture refresh outage.', retryable: true } }) });
-    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: detail, meta: freshness() }) });
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: detail, meta: freshness(false, 50) }) });
   });
   await page.goto('/anime.html?id=1');
   await expect(page.getByRole('heading', { name: 'Anime Title 01' })).toBeVisible();
-  await page.getByRole('button', { name: 'Refresh' }).click();
   await expect(page.getByRole('heading', { name: 'Latest refresh failed' })).toBeVisible();
   await expect(page.getByText(/last successfully loaded anime details are still shown/)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Anime Title 01' })).toBeVisible();
@@ -163,16 +183,29 @@ test('stale detail response labels freshness and keeps details usable', async ({
   await expect(page.getByRole('heading', { name: 'Anime Title 01' })).toBeVisible();
 });
 
-test('schedule groups source times and detail renders facts and safe MAL link', async ({ page }) => {
-  await mockApis(page, { stale: true });
+test('schedule groups localized times and detail renders local facts and safe MAL link', async ({ page }) => {
+  const midnightMonday = { ...dataset[0], broadcastDay: 'Mondays', broadcastTime: '00:30' };
+  await mockApis(page, { schedule: [midnightMonday], stale: true });
   await page.goto('/schedule.html');
-  await expect(page.getByRole('heading', { name: 'Monday' })).toBeVisible();
-  await expect(page.getByText('Source timezone: Asia/Tokyo')).toBeVisible();
+  await expect(page.locator('#timezone-label')).toHaveText('Times shown in your local timezone: America/Los_Angeles');
+  const sunday = page.locator('.schedule-day').filter({ has: page.getByRole('heading', { name: 'Sunday', exact: true }) });
+  await expect(sunday.locator('.schedule-entry')).toHaveCount(1);
+  await expect(sunday.locator('.schedule-time')).toHaveText(/8:30\s*AM/i);
   await expect(page.getByText(/Stale data/)).toBeVisible();
   await page.locator('.schedule-entry').first().click();
   await expect(page.getByRole('heading', { name: 'Anime Title 01' })).toBeVisible();
   await expect(page.getByText('A current series used for deterministic browser testing.')).toBeVisible();
+  await expect(page.locator('.fact').filter({ hasText: 'Broadcast' })).toContainText(/local time/);
   await expect(page.getByRole('link', { name: /View on MyAnimeList/ })).toHaveAttribute('href', /^https:\/\/myanimelist\.net\/anime\//);
+});
+
+test('privacy explains visitor-facing data behavior without maintenance wording', async ({ page }) => {
+  await page.goto('/privacy.html');
+  const text = await page.locator('main').innerText();
+  for (const fact of ['no accounts', 'submission forms', 'first-party analytics', 'sessionStorage', 'official MyAnimeList API', 'Cover images', 'external title link']) {
+    expect(text).toContain(fact);
+  }
+  expect(text).not.toMatch(/V1 implementation|as shipped|should be revised/i);
 });
 
 test('invalid detail ID and mobile layout avoid horizontal overflow', async ({ page }, testInfo) => {

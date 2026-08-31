@@ -29,7 +29,7 @@ export function sortAnime(items, sort) {
 export function filterAnime(items, filters) {
   const query = filters.search.trim().toLocaleLowerCase();
   return items.filter(item => {
-    const day = item.broadcastDay ? item.broadcastDay.replace(/s$/, '') : 'Unknown';
+    const day = item.localBroadcast?.day || 'Unknown';
     return (!query || [item.title, item.titleRomaji].some(value => value?.toLocaleLowerCase().includes(query))) &&
       (filters.genre === 'all' || item.genres.includes(filters.genre)) &&
       (filters.day === 'all' || day === filters.day);

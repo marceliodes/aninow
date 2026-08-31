@@ -4,9 +4,9 @@ import { filterAnime, isDefaultView, sortAnime } from '../../js/rankings-logic.j
 import { countdownText, fetchJson } from '../../js/app.js';
 
 const items = [
-  { title: 'Beta', titleRomaji: 'Bēta', score: 8, scoredBy: 100, popularity: 0, members: 30, airedFrom: null, type: 'TV', genres: ['Drama'], broadcastDay: 'Fridays' },
-  { title: 'Alpha', titleRomaji: 'Arufa', score: 7, scoredBy: 900, popularity: 5, members: 50, airedFrom: '2026-08-01T00:00:00Z', type: 'TV', genres: ['Action'], broadcastDay: null },
-  { title: 'Gamma', titleRomaji: 'Ganma', score: 9, scoredBy: 10, popularity: null, members: 10, airedFrom: '2026-08-20T00:00:00Z', type: 'TV', genres: ['Drama'], broadcastDay: 'Mondays' }
+  { title: 'Beta', titleRomaji: 'Bēta', score: 8, scoredBy: 100, popularity: 0, members: 30, airedFrom: null, type: 'TV', genres: ['Drama'], localBroadcast: { day: 'Friday' } },
+  { title: 'Alpha', titleRomaji: 'Arufa', score: 7, scoredBy: 900, popularity: 5, members: 50, airedFrom: '2026-08-01T00:00:00Z', type: 'TV', genres: ['Action'], localBroadcast: { day: 'Unknown' } },
+  { title: 'Gamma', titleRomaji: 'Ganma', score: 9, scoredBy: 10, popularity: null, members: 10, airedFrom: '2026-08-20T00:00:00Z', type: 'TV', genres: ['Drama'], localBroadcast: { day: 'Monday' } }
 ];
 
 test('implements every alternative sort with invalid popularity last', () => {

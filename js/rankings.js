@@ -1,4 +1,5 @@
 import { escapeHtml, fetchJson, formatDate, formatNumber, safeImageUrl, setupFreshness, showState } from './app.js';
+import { localBroadcast } from './broadcast-time.js';
 import { filterAnime, isDefaultView, sortAnime } from './rankings-logic.js';
 
 const list = document.querySelector('#ranking-list');
@@ -33,7 +34,7 @@ function statusText(item) {
 function rowMarkup(item, unranked = false) {
   const image = safeImageUrl(item.image);
   const href = `/anime.html?id=${item.malId}`;
-  return `<article class="rank-row"><div class="rank-number">${unranked ? '—' : `#${item.rank}`}</div><a class="cover-link" href="${href}" tabindex="-1" aria-hidden="true">${image ? `<img class="rank-cover" src="${escapeHtml(image)}" alt="" width="48" height="72" loading="lazy">` : '<span class="rank-cover"></span>'}</a><div class="rank-title"><a href="${href}">${escapeHtml(item.title)}</a>${item.titleRomaji && item.titleRomaji !== item.title ? `<div class="romaji" lang="ja-Latn">${escapeHtml(item.titleRomaji)}</div>` : ''}<div class="row-status ${item.status === 'Finished Airing' ? 'status-finished' : 'status-airing'}">${escapeHtml(statusText(item))}</div></div><div class="cell score-cell"><strong>${item.score?.toFixed(2) ?? '—'}</strong><span>${item.score ? `${formatNumber(item.scoredBy)} votes` : 'Unscored'}</span></div><div class="cell"><strong>${escapeHtml(item.studio || 'Unknown')}</strong><span>Studio</span></div><div class="cell"><strong>${escapeHtml(item.type || '—')}</strong><span>${item.episodes ? `${item.episodes} eps` : 'Episodes ?'}</span></div><div class="cell"><strong>${escapeHtml(item.broadcastDay?.replace(/s$/, '') || 'Unknown')}</strong><span>${escapeHtml(item.broadcastTime || 'Time TBD')}</span></div><div class="cell"><strong>${formatNumber(item.members)}</strong><span>Members</span></div></article>`;
+  return `<article class="rank-row"><div class="rank-number">${unranked ? '—' : `#${item.rank}`}</div><a class="cover-link" href="${href}" tabindex="-1" aria-hidden="true">${image ? `<img class="rank-cover" src="${escapeHtml(image)}" alt="" width="48" height="72" loading="lazy">` : '<span class="rank-cover"></span>'}</a><div class="rank-title"><a href="${href}">${escapeHtml(item.title)}</a>${item.titleRomaji && item.titleRomaji !== item.title ? `<div class="romaji" lang="ja-Latn">${escapeHtml(item.titleRomaji)}</div>` : ''}<div class="row-status ${item.status === 'Finished Airing' ? 'status-finished' : 'status-airing'}">${escapeHtml(statusText(item))}</div></div><div class="cell score-cell"><strong>${item.score?.toFixed(2) ?? '—'}</strong><span>${item.score ? `${formatNumber(item.scoredBy)} votes` : 'Unscored'}</span></div><div class="cell"><strong>${escapeHtml(item.studio || 'Unknown')}</strong><span>Studio</span></div><div class="cell"><strong>${escapeHtml(item.type || '—')}</strong><span>${item.episodes ? `${item.episodes} eps` : 'Episodes ?'}</span></div><div class="cell"><strong>${escapeHtml(item.localBroadcast.day)}</strong><span>${escapeHtml(item.localBroadcast.time)}</span></div><div class="cell"><strong>${formatNumber(item.members)}</strong><span>Members</span></div></article>`;
 }
 
 function featuredMarkup(item, index) {
@@ -83,11 +84,10 @@ async function load() {
     featured.hidden = true;
     showLoadingRows();
   }
-  document.querySelector('[data-refresh]')?.removeAttribute('disabled');
   try {
     const payload = await fetchJson('/api/airing');
-    dataset = payload.data;
-    if (!Array.isArray(dataset)) throw new Error('AniNow received an incomplete ranking dataset.');
+    if (!Array.isArray(payload.data)) throw new Error('AniNow received an incomplete ranking dataset.');
+    dataset = payload.data.map(item => ({ ...item, localBroadcast: localBroadcast(item) }));
     hasSuccessfulDataset = true;
     if (document.querySelector('#genre-filter').options.length === 1) populateGenres();
     stopCountdown();
@@ -117,11 +117,10 @@ async function load() {
     featured.hidden = true;
     document.querySelector('.hero-art').style.backgroundImage = '';
     showState(stateBox, { title: 'The rankings are taking a break', message: error.message, retry: error.retryable === false ? null : load, error: true });
-  } finally { document.querySelector('[data-refresh]')?.removeAttribute('disabled'); }
+  }
 }
 
 controls.addEventListener('input', () => { visible = 20; render(); });
 controls.addEventListener('reset', () => setTimeout(() => { visible = 20; render(); }));
 loadMore.addEventListener('click', () => { visible += 20; render(); loadMore.focus(); });
-document.addEventListener('aninow:refresh', load);
 load();

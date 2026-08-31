@@ -100,7 +100,7 @@ Preserve the established release behavior:
 - non-destructive refresh failures when usable content already exists;
 - full error state only when no usable data exists.
 
-Manual Refresh must respect cache and must not hammer MAL.
+Automatic countdown expiry and Retry requests must respect cache and must not hammer MAL.
 
 The visible `mm:ss` countdown reflects AniNow cache freshness, not second-by-second MAL freshness.
 
@@ -136,7 +136,7 @@ Production wording may use:
 Remove Jikan attribution only after Jikan is fully removed from the production code/data path.
 
 ## UX quality
-Every visible control must work: genre/day filters, sorting, in-dataset search, Load More, theme toggle, Refresh, navigation, detail links, and external MAL links.
+Every visible control must work: genre/day filters, sorting, in-dataset search, Load More, theme toggle, navigation, detail links, and external MAL links.
 
 If a Type filter remains after the TV-only migration, remove or simplify it; do not show meaningless TV/ONA/OVA options.
 

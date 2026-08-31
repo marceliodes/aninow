@@ -1,4 +1,5 @@
 import { escapeHtml, fetchJson, formatDate, formatNumber, safeImageUrl, safeMalUrl, setupFreshness, showState } from './app.js';
+import { localBroadcast } from './broadcast-time.js';
 
 const article = document.querySelector('#anime-detail');
 const stateBox = document.querySelector('#detail-state');
@@ -17,6 +18,8 @@ function setMeta(attribute, key, value) {
 function render(item, meta) {
   const image = safeImageUrl(item.image);
   const malUrl = safeMalUrl(item.malUrl, item.malId);
+  const broadcast = localBroadcast(item);
+  const broadcastText = broadcast.day === 'Unknown' ? 'Unknown · TBA' : `${broadcast.day} at ${broadcast.time} (local time)`;
   document.title = `${item.title} — AniNow`;
   document.querySelector('meta[name="description"]').content = `${item.title}: score, broadcast information, synopsis, and AniNow rank.`;
   setMeta('property', 'og:title', `${item.title} — AniNow`);
@@ -25,7 +28,7 @@ function render(item, meta) {
   setMeta('name', 'twitter:description', item.synopsis || `${item.title}: score, broadcast information, and AniNow rank.`);
   if (image) { setMeta('property', 'og:image', image); setMeta('name', 'twitter:image', image); }
   document.querySelector('#crumb-title').textContent = item.title;
-  article.innerHTML = `<div class="detail-cover">${image ? `<img src="${escapeHtml(image)}" alt="Cover art for ${escapeHtml(item.title)}" width="260" height="390">` : '<span aria-label="Cover art unavailable"></span>'}</div><div class="detail-body"><p class="detail-kicker">${escapeHtml(item.type || 'Anime')} · ${escapeHtml(item.status || 'Status unknown')}${meta.stale ? ' · Stale data' : ''}</p><h1 class="detail-title">${escapeHtml(item.title)}</h1>${item.titleRomaji && item.titleRomaji !== item.title ? `<p class="detail-romaji" lang="ja-Latn">${escapeHtml(item.titleRomaji)}</p>` : ''}<div class="detail-scorebar"><div class="big-score"><strong>${item.score?.toFixed(2) ?? '—'}</strong><small>${item.score ? `MAL score · ${formatNumber(item.scoredBy)} votes` : 'Not scored yet'}</small></div><div class="rank-stat"><strong>${item.aniNowRank ? `#${item.aniNowRank}` : '—'}</strong><small>Best-effort AniNow rank</small></div></div><div class="detail-tags">${item.genres.length ? item.genres.map(value => `<span class="tag">${escapeHtml(value)}</span>`).join('') : '<span class="tag">Genres unknown</span>'}</div><p class="detail-synopsis">${escapeHtml(item.synopsis || 'A synopsis is not available for this title.')}</p><dl class="detail-facts">${fact('Studio', item.studios.join(', ') || 'Unknown')}${fact('Episodes', item.episodes || 'Unknown')}${fact('Broadcast', item.broadcastDay ? `${item.broadcastDay}${item.broadcastTime ? ` at ${item.broadcastTime}` : ''}${item.broadcastTimezone ? ` (${item.broadcastTimezone})` : ''}` : 'Unknown')}${fact('Season', item.season && item.year ? `${item.season[0].toUpperCase()}${item.season.slice(1)} ${item.year}` : item.year || 'Unknown')}${fact('Aired from', formatDate(item.airedFrom))}${fact('Aired to', formatDate(item.airedTo))}</dl>${malUrl ? `<a class="external-link" href="${escapeHtml(malUrl)}" target="_blank" rel="noopener noreferrer">View on MyAnimeList <span aria-hidden="true">↗</span></a>` : ''}</div>`;
+  article.innerHTML = `<div class="detail-cover">${image ? `<img src="${escapeHtml(image)}" alt="Cover art for ${escapeHtml(item.title)}" width="260" height="390">` : '<span aria-label="Cover art unavailable"></span>'}</div><div class="detail-body"><p class="detail-kicker">${escapeHtml(item.type || 'Anime')} · ${escapeHtml(item.status || 'Status unknown')}${meta.stale ? ' · Stale data' : ''}</p><h1 class="detail-title">${escapeHtml(item.title)}</h1>${item.titleRomaji && item.titleRomaji !== item.title ? `<p class="detail-romaji" lang="ja-Latn">${escapeHtml(item.titleRomaji)}</p>` : ''}<div class="detail-scorebar"><div class="big-score"><strong>${item.score?.toFixed(2) ?? '—'}</strong><small>${item.score ? `MAL score · ${formatNumber(item.scoredBy)} votes` : 'Not scored yet'}</small></div><div class="rank-stat"><strong>${item.aniNowRank ? `#${item.aniNowRank}` : '—'}</strong><small>Best-effort AniNow rank</small></div></div><div class="detail-tags">${item.genres.length ? item.genres.map(value => `<span class="tag">${escapeHtml(value)}</span>`).join('') : '<span class="tag">Genres unknown</span>'}</div><p class="detail-synopsis">${escapeHtml(item.synopsis || 'A synopsis is not available for this title.')}</p><dl class="detail-facts">${fact('Studio', item.studios.join(', ') || 'Unknown')}${fact('Episodes', item.episodes || 'Unknown')}${fact('Broadcast', broadcastText)}${fact('Season', item.season && item.year ? `${item.season[0].toUpperCase()}${item.season.slice(1)} ${item.year}` : item.year || 'Unknown')}${fact('Aired from', formatDate(item.airedFrom))}${fact('Aired to', formatDate(item.airedTo))}</dl>${malUrl ? `<a class="external-link" href="${escapeHtml(malUrl)}" target="_blank" rel="noopener noreferrer">View on MyAnimeList <span aria-hidden="true">↗</span></a>` : ''}</div>`;
   article.setAttribute('aria-busy', 'false');
 }
 
@@ -36,7 +39,6 @@ async function load() {
     article.hidden = true;
     document.querySelector('.detail-freshness').hidden = true;
     showState(stateBox, { title: 'Invalid anime link', message: 'This detail page needs a positive numeric anime ID.' });
-    document.querySelector('[data-refresh]')?.removeAttribute('disabled');
     return;
   }
   try {
@@ -61,8 +63,6 @@ async function load() {
     article.hidden = true;
     showState(stateBox, { title: error.status === 404 ? 'Anime unavailable' : 'Details could not load', message: error.message, retry: error.retryable === false ? null : load, error: true });
   }
-  finally { document.querySelector('[data-refresh]')?.removeAttribute('disabled'); }
 }
 
-document.addEventListener('aninow:refresh', load);
 load();

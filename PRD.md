@@ -79,9 +79,7 @@ Preserve:
 - non-destructive refresh failure when valid content is already rendered;
 - full error state only when no usable data exists.
 
-UI shows last successful update, `mm:ss` countdown, stale/failure status where applicable, and Refresh.
-
-Manual Refresh respects backend cache and must not force repeated MAL requests.
+UI shows last successful update, `mm:ss` countdown, and stale/failure status where applicable. At expiry, the browser automatically requests refreshed AniNow data while backend caching remains authoritative.
 
 "Live/current" means periodically refreshed, not second-by-second real-time MAL updates.
 
@@ -271,7 +269,7 @@ group Monday–Sunday
 
 Missing broadcast information goes to an Unknown/TBA state.
 
-Timezone labeling must be explicit. V1 may show source/JST-style schedule time unless local conversion is deliberately implemented and labeled.
+The browser converts valid `Asia/Tokyo` broadcast weekdays and times to the visitor's local timezone. Local timezone labeling must be explicit; incomplete or invalid broadcast information remains Unknown/TBA.
 
 ## Pages
 
@@ -309,7 +307,7 @@ Primary:
 - Schedule
 - About
 
-Also theme toggle and Refresh where appropriate.
+Also a theme toggle.
 
 Privacy in footer.
 
@@ -455,7 +453,7 @@ Do not imply sponsorship or endorsement.
 - [ ] Weekly schedule derives from MAL `broadcast` data.
 - [ ] Top-three treatment + #1 blurred backdrop/fallback works.
 - [ ] `mm:ss` freshness/retry countdown works.
-- [ ] Manual Refresh respects cache.
+- [ ] Automatic countdown expiry respects cache.
 - [ ] Rankings/schedule/detail retain rendered content on later retryable refresh failure.
 - [ ] Dynamic detail page uses official MAL data.
 - [ ] About/methodology reflects TV-only official-MAL architecture.
