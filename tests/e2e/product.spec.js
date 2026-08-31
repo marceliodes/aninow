@@ -3,7 +3,7 @@ import { dataset, detail, freshness, mockApis } from './helpers.js';
 
 test('rankings controls, top-three behavior, load more, and links work', async ({ page }) => {
   const upstream = [];
-  page.on('request', request => { if (request.url().includes('api.jikan.moe')) upstream.push(request.url()); });
+  page.on('request', request => { if (request.url().includes('api.myanimelist.net')) upstream.push(request.url()); });
   await mockApis(page);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /What’s airing/ })).toBeVisible();
@@ -12,9 +12,10 @@ test('rankings controls, top-three behavior, load more, and links work', async (
   await page.getByRole('button', { name: 'Load 20 more' }).click();
   await expect(page.locator('#ranking-list .rank-row')).toHaveCount(22);
   await expect(page.getByRole('button', { name: 'Load 20 more' })).toBeHidden();
-  await page.getByLabel('Type').selectOption('ONA');
+  await expect(page.getByLabel('Type')).toHaveCount(0);
+  await page.getByLabel('Genre').selectOption('Action');
   await expect(page.locator('#featured')).toBeHidden();
-  await expect(page.locator('#ranking-list .rank-row')).toHaveCount(dataset.filter(x => x.type === 'ONA' && x.score).length);
+  await expect(page.locator('#ranking-list .rank-row')).toHaveCount(dataset.filter(x => x.genres.includes('Action') && x.score).length);
   await page.getByLabel('Search AniNow').fill('Romaji 06');
   await expect(page.locator('#ranking-list .rank-row')).toHaveCount(1);
   await page.getByRole('button', { name: 'Reset' }).click();

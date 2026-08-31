@@ -136,9 +136,9 @@ page, alphabetically sorted.
 
 ## Controls
 
-Provide Type, Genre, Airing day, Sort, and search-within-AniNow
-controls. Use straightforward controls rather than making everything a
-pill.
+Provide Genre, Airing day, Sort, and search-within-AniNow controls. The
+dataset is TV-only, so do not add a meaningless Type selector. Use
+straightforward controls rather than making everything a pill.
 
 Initial ranked view shows 20; Load More reveals more.
 

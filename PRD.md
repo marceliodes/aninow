@@ -1,225 +1,357 @@
-# PRD.md --- AniNow
+# PRD.md — AniNow
 
 ## Product
-
 AniNow is an open-source anime discovery website answering:
 
 > **What's airing? See who's on top.**
 
-It ranks all eligible currently airing anime by MyAnimeList score, keeps
-recently finished titles for a 14-day grace period, and provides a
-weekly airing schedule. Data comes from MyAnimeList via Jikan and is
-normalized/cached through Cloudflare serverless endpoints.
+AniNow ranks eligible **currently airing TV anime** by MyAnimeList score, keeps recently finished eligible TV titles in the same leaderboard for a 14-day grace period, and provides a weekly airing schedule.
+
+Data comes directly from the **official MyAnimeList API v2** through AniNow's Cloudflare serverless layer.
 
 AniNow is intended to remain useful beyond its portfolio role.
 
 ## Goals
-
--   Current, scan-friendly airing leaderboard.
--   MAL score is default ranking.
--   Show `scored_by`.
--   Keep recently finished shows for 14 days in the same ranking.
--   Keep eligible unrated shows visible under Not Ranked Yet.
--   Filters/sorts/search over AniNow's eligible dataset.
--   Weekly schedule and dynamic detail pages.
--   30-minute cache cadence.
--   Fast, accessible, responsive, open-source-friendly implementation.
+- Current, scan-friendly TV-anime leaderboard.
+- MAL score is the default ranking.
+- Display number of scoring users.
+- Keep recently finished TV anime for 14 days in the same ranking.
+- Keep eligible unrated TV anime under **Not Ranked Yet**.
+- Genre/day filters, sorting, and in-dataset search.
+- Weekly schedule generated from the same eligible dataset.
+- Dynamic anime detail pages.
+- ~30-minute freshness/cache cadence.
+- Last-known-good resilience during upstream outages.
+- Fast, accessible, responsive, maintainable, open-source implementation.
 
 ## Non-goals
+No accounts, MAL login/OAuth, watchlists, comments, AniNow ratings, streaming/piracy links, persistent favorites, global MAL search, movie rankings, ONA/OVA rankings, or recommendation engine.
 
-No accounts, watchlists, comments, AniNow ratings, streaming/piracy
-links, MAL authentication, persistent favorites, global MAL search, or
-movie leaderboard.
+## Upstream provider
+AniNow V1 uses the **official MyAnimeList API v2** as its sole production anime-data provider.
+
+Do not silently add Jikan, scraping, AniList, Kitsu, or another provider as fallback.
+
+## Authentication
+Cloudflare authenticates MAL requests using server-side:
+```text
+MAL_CLIENT_ID
+```
+
+The browser never receives this credential.
+
+Local development uses `.dev.vars`, which remains gitignored.
+
+Production uses Cloudflare environment configuration/secrets.
+
+The MAL Client Secret is not required for V1's public read-only API usage unless future authenticated/OAuth functionality explicitly requires it.
 
 ## Architecture
-
-``` text
+```text
 Browser
   ↓
-Cloudflare Pages
+Cloudflare Pages frontend
   ↓ /api/...
 Cloudflare Pages Function / Worker
-  ↓ cache miss
-Jikan REST API
   ↓
-normalize + eligibility rules
-  ↓
-cache ~30 minutes
-  ↓
+fresh AniNow cache?
+  ├─ yes → normalized cached JSON
+  └─ no
+       ↓
+Official MyAnimeList API v2
+       ↓
+normalize + eligibility/business rules
+       ↓
+cache + last-known-good snapshot
+       ↓
 frontend
 ```
 
-Frontend consumes AniNow's normalized API, not raw Jikan directly.
+Frontend consumes AniNow's normalized API, not raw MAL responses.
 
-## Refresh
+## Refresh and resilience
+Preserve:
+- ~30-minute fresh cache;
+- ~24-hour last-known-good data;
+- failed-refresh suppression/backoff;
+- concurrent refresh deduplication where practical;
+- stale metadata;
+- non-destructive refresh failure when valid content is already rendered;
+- full error state only when no usable data exists.
 
-Cache target: **30 minutes** for leaderboard, schedule, and initially
-details.
+UI shows last successful update, `mm:ss` countdown, stale/failure status where applicable, and Refresh.
 
-UI shows last successful update, `mm:ss` countdown to expected expiry,
-and Refresh.
+Manual Refresh respects backend cache and must not force repeated MAL requests.
 
-Refresh re-requests AniNow's endpoint but respects server cache. It must
-not force repeated Jikan calls.
-
-"Live/current" means periodically refreshed; do not claim
-second-by-second real-time MAL updates.
+"Live/current" means periodically refreshed, not second-by-second real-time MAL updates.
 
 ## Eligibility
+Include only:
+```text
+media_type === "tv"
+```
 
-Include: - all currently airing eligible anime, including long-running
-shows; - TV; - ONA; - OVA, including periodic ONA/OVA releases
-represented as airing/releasing by source data.
+and either:
+```text
+status === "currently_airing"
+```
 
-Exclude: - Movies; - Hentai/explicit adult entries (e.g. Rx adult
-classification); - entries outside current/recently-finished rules.
+or:
+```text
+status === "finished_airing"
+AND reliable end_date is within the last 14 days
+```
 
-Ordinary mature/ecchi titles are not automatically excluded solely for
-being mature; use available source classification carefully.
+Long-running TV anime remain eligible while MAL marks them currently airing.
 
-## Recently finished lifecycle
+Exclude ONA, OVA, movies, specials/other non-TV types, explicit adult/Hentai/Rx entries, and entries outside the current/recently-finished lifecycle.
 
-When an eligible anime becomes Finished Airing: - keep it in the **same
-leaderboard**; - retain for 14 days after reliable final aired date; -
-keep normal score-based ordering; - show Finished status and
-grace-period context where feasible; - remove after 14 days.
+Ordinary mature/ecchi TV anime are not automatically excluded solely for mature themes.
 
-If Finished status lacks a reliable final date, do not invent one. Keep
-date logic isolated and handle conservatively after testing real API
-behavior.
+## Current-airing discovery
+Use the official MAL anime ranking endpoint with:
+```text
+ranking_type=airing
+```
+
+Paginate as needed.
+
+Request required fields directly with MAL's `fields=` parameter wherever supported.
+
+Then:
+1. keep `media_type === "tv"`;
+2. keep entries identified as currently airing;
+3. normalize into AniNow's internal shape;
+4. deduplicate by MAL ID.
+
+Avoid one detail request per leaderboard item.
+
+## Recently finished discovery
+Use official MAL seasonal data for:
+- current season;
+- immediately previous season.
+
+Keep candidates where:
+- `media_type === "tv"`;
+- `status === "finished_airing"`;
+- reliable `end_date` exists;
+- `end_date` is within 14 days;
+- MAL ID is not already present.
+
+Merge them into the same leaderboard and deduplicate by MAL ID.
+
+If real MAL behavior proves current+previous season insufficient for the 14-day rule, extend the candidate strategy deliberately rather than guessing.
 
 ## Ranking
+Default order:
+```text
+MAL mean score descending
+```
 
-Default: MAL `score` descending.
+Normalize:
+```text
+mean → score
+num_scoring_users → scoredBy
+```
 
-Use MAL's supplied score/weighting. AniNow adds **no custom minimum-vote
-threshold** and no custom rating formula.
+Use MAL's supplied weighting as-is.
 
-Display `scored_by`.
+No custom minimum-vote threshold and no custom rating formula.
 
-Stable tie-break: 1. greater `scored_by`; 2. title alphabetically.
+Stable score tie-break:
+1. greater `scoredBy`;
+2. title alphabetically.
+
+Recently finished titles remain in normal score ranking during their grace period.
 
 ## Unranked
+Eligible TV anime without a usable `mean` score appear under **Not Ranked Yet**.
 
-Eligible entries without a usable score appear under **Not Ranked Yet**,
-alphabetically by display/English title. They receive no numbered rank.
+Sort alphabetically by display title.
+
+They receive no numbered rank.
 
 ## Alternative sorts
+- Score — default
+- Popularity
+- Members
+- Newest
+- Title
 
--   Score (default)
--   Popularity
--   Members
--   Newest
--   Title
-
-Map these directly to available normalized fields and document
-definitions in code.
+Relevant mappings:
+```text
+popularity     → popularity
+num_list_users → members
+start_date     → newest/date logic
+```
 
 ## Filters
+Provide:
+- Genre
+- Airing day
 
--   Type: All / TV / ONA / OVA
--   Genre
--   Airing day
+Remove or simplify the old Type filter because V1 is TV-only.
 
 ## Search
+Search only AniNow's eligible dataset.
 
-Search only AniNow's eligible loaded dataset, matching at least
-English/display and romaji titles. This is not global MAL search.
+Match at least:
+- English/display title;
+- MAL main/romaji title.
+
+This is not global MAL search.
 
 ## Results
+Initially render top **20** ranked results after current filter/sort/search state.
 
-Initially render top **20** ranked results after current
-filters/search/sort. **Load More** reveals additional entries.
+**Load More** reveals more.
+
+## Official MAL field mapping
+| MyAnimeList API v2 | AniNow |
+| --- | --- |
+| `id` | `malId` |
+| `title` | `titleRomaji` / fallback display title |
+| `alternative_titles.en` | preferred English/display title |
+| `main_picture.large/medium` | `image` |
+| `mean` | `score` |
+| `num_scoring_users` | `scoredBy` |
+| `popularity` | `popularity` |
+| `num_list_users` | `members` |
+| `media_type` | `type` |
+| `status` | normalized `status` / `airing` |
+| `num_episodes` | `episodes` |
+| `broadcast.day_of_the_week` | `broadcastDay` |
+| `broadcast.start_time` | `broadcastTime` |
+| `genres` | `genres` |
+| `studios` | `studio` / `studios` |
+| `start_date` | `airedFrom` |
+| `end_date` | `airedTo` |
+| `start_season` | season/year |
+| `synopsis` | synopsis |
+
+Title behavior:
+- Prefer `alternative_titles.en` as main English/display title when available.
+- Use MAL `title` as romaji/main-source title.
+- If English is missing, use `title`.
+- Do not render duplicate English/romaji text when both resolve to the same string.
 
 ## Leaderboard fields
+Where available:
+- rank;
+- cover;
+- English/display title;
+- romaji title;
+- score;
+- scoring-user count;
+- studio;
+- total episodes;
+- next broadcast day/time;
+- status;
+- members/popularity where useful.
 
-Required where available: - rank - cover - English/display title -
-romaji title - score - `scored_by` - studio - type - total/max
-episodes - next broadcast/day - status
+Do not implement "current episode number" unless a reliable low-cost method is explicitly validated.
 
-Do not implement "current episode number" unless a later reliable
-low-cost method is validated. Never guess.
+Never guess unknown totals.
 
 ## Top three
+#1–#3 receive restrained featured treatment but use the same ranking logic.
 
-#1--#3 receive restrained featured treatment but use the same ranking
-logic. #1 artwork may become the blurred top-area background without an
-extra API request.
+#1 artwork may become the blurred atmospheric top background without an extra request.
+
+## Weekly schedule
+Build the schedule from the same eligible TV dataset:
+```text
+eligible TV anime
+  ↓
+broadcast.day_of_the_week
+broadcast.start_time
+  ↓
+group Monday–Sunday
+```
+
+Missing broadcast information goes to an Unknown/TBA state.
+
+Timezone labeling must be explicit. V1 may show source/JST-style schedule time unless local conversion is deliberately implemented and labeled.
 
 ## Pages
 
 ### `index.html`
+Compact header/hero, freshness info, top three, genre/day filters, in-dataset search, sort, dense ranking list, Load More, Not Ranked Yet, attribution footer.
 
-Compact header/hero, freshness info, top three, controls, ranked
-vertical list, Load More, Not Ranked Yet, attribution footer.
-
-Hero direction: \> **What's airing? See who's on top.**
+Hero:
+> **What's airing? See who's on top.**
 
 ### `schedule.html`
+Monday–Sunday schedule derived from MAL `broadcast` data.
 
-Monday--Sunday airing schedule for AniNow-relevant anime. Show
-cover/title, broadcast time where available, useful status/type, and
-detail-page link.
-
-Timezone must be explicit. Initially show source timezone such as JST
-unless reliable local conversion is intentionally implemented and
-labeled.
+Show cover/title, broadcast time where available, useful status, and detail-page link.
 
 ### `anime.html?id=<MAL_ID>`
+Use the official MAL detail endpoint and request only needed fields.
 
-Display artwork, English/display title, romaji title, score,
-`scored_by`, AniNow rank if feasible, synopsis, genres, studios, type,
-episodes, broadcast, season/year, status, aired dates, and external
-MyAnimeList link.
+Display artwork, English/display title, romaji title, score, scoring-user count, AniNow rank if feasible, synopsis, genres, studios, TV type, episode total, broadcast, season/year, status, aired dates, external MAL link, and freshness/stale state.
 
-No embedded trailer/autoplay. Trailer link is not required for v1.
+No embedded trailer/autoplay. Trailer link not required for V1.
 
 ### `about.html`
+Explain TV-only scope, official MAL API v2 data source, score basis, scoring-user count, 14-day grace period, Not Ranked Yet behavior, 30-minute cache model, stale/outage behavior at a high level, and non-affiliation.
 
-Explain purpose, eligibility, TV/ONA/OVA inclusion, movie/adult
-exclusions, MAL score basis, `scored_by`, 14-day grace, unranked
-behavior, 30-minute refresh/cache, Jikan/MAL attribution, and
-non-affiliation.
+Remove Jikan attribution after it is removed from production code/data flow.
 
 ### `privacy.html`
+Launch assumptions remain: no accounts, user-submitted personal data, persistent favorites, required localStorage, or first-party analytics unless explicitly added.
 
-Launch assumption: no accounts, submitted personal data, persistent
-favorites, required localStorage, or first-party analytics unless later
-added. Final wording must match implementation. Mention relevant
-third-party requests without inventing legal conclusions.
+The final policy must match implementation.
 
 ## Navigation
+Primary:
+- Rankings
+- Schedule
+- About
 
-Primary: Rankings, Schedule, About. Also theme toggle and Refresh where
-appropriate. Recently Finished is not a separate page. Privacy is in
-footer.
+Also theme toggle and Refresh where appropriate.
+
+Privacy in footer.
+
+Recently Finished is not a separate page.
 
 ## Theme
+Light + dark.
 
-Light + dark. Initial theme follows `prefers-color-scheme`. Manual
-toggle supported. Persistence not required.
+Initial mode follows `prefers-color-scheme`.
 
-## Loading/errors
+Manual toggle supported.
 
-Use skeleton rows. Handle invalid/non-200 responses with friendly error,
-Retry, last successful update when known, and stale-data indication if
-backend can provide it. Never leave a blank page.
+Persistence not required.
 
-## Suggested normalized endpoints
+## Loading and errors
+Initial-load failure:
+- friendly full error state;
+- Retry.
 
-``` text
+Later retryable refresh failure after successful render:
+- preserve existing content;
+- show compact non-destructive warning/stale state;
+- preserve freshness context.
+
+Definitive responses such as genuinely unavailable/ineligible detail data may replace obsolete content.
+
+## Normalized endpoints
+Keep:
+```text
 GET /api/airing
 GET /api/schedule
 GET /api/anime/:id
 ```
 
-Example item shape:
+`/api/schedule` may internally derive its response from the same eligible airing dataset rather than call a separate upstream schedule endpoint.
 
-``` json
+Example normalized item:
+```json
 {
   "malId": 1,
-  "title": "Display Title",
-  "titleRomaji": "Romaji Title",
+  "title": "English or display title",
+  "titleRomaji": "Romaji title",
   "image": "https://...",
   "score": 8.74,
   "scoredBy": 42381,
@@ -230,84 +362,109 @@ Example item shape:
   "episodes": 12,
   "status": "Currently Airing",
   "airing": true,
-  "airedFrom": "ISO-8601",
+  "airedFrom": "ISO-8601/date",
   "airedTo": null,
-  "broadcastDay": "Fridays",
-  "broadcastTime": "23:00",
+  "broadcastDay": "Wednesday",
+  "broadcastTime": "22:00",
   "broadcastTimezone": "Asia/Tokyo",
   "genres": ["Drama"]
 }
 ```
 
-Top-level responses should expose `updatedAt`, `expiresAt`, and
-stale/freshness metadata where useful. Adapt exact fields after checking
-current Jikan v4 responses.
+Top-level responses continue exposing `updatedAt`, `expiresAt`, stale/freshness metadata, and retry metadata where applicable.
 
 ## Upstream strategy
+Requirements:
+- official MAL API v2 only for production V1;
+- server-side `MAL_CLIENT_ID`;
+- `fields=` to reduce extra calls;
+- careful pagination;
+- no N+1 leaderboard requests;
+- normalization before browser responses;
+- successful-response caching;
+- last-known-good fallback;
+- handling for timeouts, throttling, 4xx/5xx, malformed responses, and partial pagination failures;
+- failed/partial refreshes cannot poison good cache;
+- conservative request pacing;
+- concurrent refresh deduplication where practical.
 
-Before coding endpoints, inspect current Jikan v4 docs rather than
-relying on memory.
+## Development mock mode
+Keep fixture-backed development mode.
 
-Requirements: - cache normalized responses; - avoid N+1 leaderboard
-requests; - do not fetch per-anime episode lists just to infer current
-episode; - handle 429/5xx; - deduplicate refresh work where practical; -
-prefer safe stale cache over total failure when technically feasible.
+Update fixtures to TV-only assumptions.
+
+Requirements:
+- same normalized `/api/...` contract;
+- enough TV entries for Top 20 + Load More;
+- ranked, unranked, currently airing, and recently finished examples;
+- varied genres/days/studios/scores/popularity/member counts;
+- explicit local/development-only activation;
+- `no-store`;
+- impossible to activate accidentally in production.
+
+Production must never silently display fake fixture anime.
 
 ## Countdown
+Derive `mm:ss` from server-provided timestamps.
 
-Derive `mm:ss` from `expiresAt`. At zero, request refreshed AniNow data
-and reset from returned timestamps. Recalculate from timestamps after
-background-tab suspension; do not rely only on decrementing an integer.
+At zero, request refreshed AniNow data and let backend caching remain authoritative.
 
-## Performance/accessibility
+After background-tab suspension, recalculate from timestamps rather than blindly decrement an old integer.
 
-No framework/CDN libraries. Locally host Noto Sans JP (or approved
-replacement). Lazy-load offscreen covers, reserve image geometry, keep
-JSON compact, and fetch detail data only when needed.
+## Performance and accessibility
+No frontend framework/CDN libraries.
 
-Use semantic landmarks, labels, keyboard controls, visible focus,
-reduced motion, readable contrast, useful alt text, and textual status
-indicators.
+Locally host Noto Sans JP or approved replacement.
+
+Lazy-load offscreen covers, reserve image geometry, keep normalized JSON compact, and fetch detail data only when needed.
+
+Use semantic landmarks, labels, keyboard controls, visible focus, reduced motion, readable contrast, useful alt text, and textual status indicators.
 
 ## Attribution and licensing
+AniNow is licensed under the **MIT License**.
 
-Footer direction:
+Preserve third-party asset/font license obligations.
 
-> Anime data sourced from MyAnimeList via Jikan. AniNow is not
-> affiliated with MyAnimeList.
+Production attribution:
+> Anime data provided by MyAnimeList. AniNow is not affiliated with or endorsed by MyAnimeList.
 
-Jikan is unofficial. Do not imply endorsement.
+Do not imply sponsorship or endorsement.
 
-AniNow is released under the **MIT License**. Jikan's software is also
-MIT-licensed, but API consumption does not by itself require AniNow to
-copy Jikan's license. Vendored third-party assets/code/fonts retain
-their own obligations.
-
-## V1 acceptance
-
--   [ ] Cloudflare Pages + serverless API works.
--   [ ] AniNow API normalizes Jikan data.
--   [ ] \~30-minute caching works.
--   [ ] Eligible currently airing TV/ONA/OVA are represented.
--   [ ] Movies and explicit adult/Hentai entries are excluded.
--   [ ] Finished entries remain mixed in ranking for 14 days.
--   [ ] Score-descending default + `scored_by`.
--   [ ] No invented minimum-rating threshold.
--   [ ] Not Ranked Yet is alphabetical.
--   [ ] Top 20 + Load More.
--   [ ] Type/genre/day filters.
--   [ ] Score/popularity/members/newest/title sorts.
--   [ ] In-dataset title search.
--   [ ] Top-three treatment + #1 blurred backdrop/fallback.
--   [ ] `mm:ss` refresh countdown from timestamps.
--   [ ] Manual Refresh respects cache.
--   [ ] Schedule page.
--   [ ] Dynamic anime detail page.
--   [ ] About/methodology page.
--   [ ] Privacy page matches implementation.
--   [ ] OS-following light/dark theme + manual toggle.
--   [ ] Skeleton/error/Retry states.
--   [ ] Intentional mobile composition.
--   [ ] Local font assets; no font/CSS/JS/icon CDN.
--   [ ] Attribution/non-affiliation.
--   [ ] README/license prepared for public release.
+## V1 acceptance criteria
+- [ ] Cloudflare Pages + serverless API works.
+- [ ] Official MyAnimeList API v2 is the sole production anime-data provider.
+- [ ] `MAL_CLIENT_ID` remains server-side only.
+- [ ] `.dev.vars` remains gitignored.
+- [ ] AniNow normalizes official MAL fields into its stable API contract.
+- [ ] ~30-minute fresh cache works.
+- [ ] ~24-hour last-known-good fallback works.
+- [ ] Current airing discovery uses MAL `ranking_type=airing`.
+- [ ] Only `media_type === "tv"` entries are eligible.
+- [ ] Explicit adult/Hentai/Rx entries are excluded.
+- [ ] Recently finished eligible TV anime stay mixed in ranking for 14 days.
+- [ ] Recently finished discovery uses current/previous official MAL seasonal data.
+- [ ] Default ranking uses MAL `mean`.
+- [ ] Scoring-user count uses `num_scoring_users`.
+- [ ] No custom minimum-rating threshold.
+- [ ] Not Ranked Yet is alphabetical.
+- [ ] Top 20 + Load More works.
+- [ ] Genre/day filters work.
+- [ ] Old TV/ONA/OVA Type filter is removed or simplified.
+- [ ] Score/popularity/members/newest/title sorts work.
+- [ ] English/romaji in-dataset search works.
+- [ ] Weekly schedule derives from MAL `broadcast` data.
+- [ ] Top-three treatment + #1 blurred backdrop/fallback works.
+- [ ] `mm:ss` freshness/retry countdown works.
+- [ ] Manual Refresh respects cache.
+- [ ] Rankings/schedule/detail retain rendered content on later retryable refresh failure.
+- [ ] Dynamic detail page uses official MAL data.
+- [ ] About/methodology reflects TV-only official-MAL architecture.
+- [ ] Privacy matches implementation.
+- [ ] OS-following light/dark theme + manual toggle works.
+- [ ] Skeleton, empty, error, Retry, stale, and warning states work.
+- [ ] Intentional mobile composition works.
+- [ ] Local font assets; no font/CSS/JS/icon CDN.
+- [ ] Development fixtures are TV-only and production-safe.
+- [ ] Attribution/non-affiliation is accurate.
+- [ ] MIT LICENSE and README are ready for public release.
+- [ ] Existing unit/function, browser, mock, and accessibility tests pass after migration.

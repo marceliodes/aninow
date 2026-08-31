@@ -1,59 +1,35 @@
 # AniNow
 
-AniNow is a framework-free, multi-page anime discovery site for current rankings and weekly broadcast schedules. Anime data is sourced from MyAnimeList through the unofficial Jikan API, normalized and cached by Cloudflare Pages Functions.
+AniNow is a framework-free, multi-page discovery site for TV anime airing now, recently finished TV titles, and weekly broadcast schedules. Anime data comes directly from the official MyAnimeList API v2, then is normalized and cached by Cloudflare Pages Functions.
 
 ## Local development
 
-Requires Node.js 20 or newer.
+Requires Node.js 20 or newer and a MyAnimeList API Client ID. Create an application in MyAnimeList API settings, then add an ignored `.dev.vars` file:
+
+```text
+MAL_CLIENT_ID="your-client-id"
+```
+
+Only the Client ID is needed for AniNow’s public read-only requests. Do not add a Client Secret; AniNow does not use OAuth.
 
 ```sh
 npm install
 npm run dev
 ```
 
-Then visit `http://localhost:4174`.
+Then visit `http://localhost:4174`. Wrangler runs the Pages Functions that serve `/api/airing`, `/api/schedule`, and `/api/anime/:id`; a static-only server cannot execute those routes. The Client ID stays in the server-side Cloudflare environment and is never sent to browser code or included in AniNow API responses.
 
-`npm run dev` runs this exact Cloudflare Pages command:
-
-```sh
-WRANGLER_LOG_PATH=/tmp/aninow-wrangler.log npx wrangler pages dev . --port 4174 --local-protocol http
-```
-
-Use Wrangler for local development. A static-only server such as Python's
-`http.server`, an editor Live Server extension, or `npx serve` will display the
-HTML but cannot execute `functions/api/*`; API requests will therefore return a
-non-JSON page or 404. The browser should request AniNow's same-origin
-`/api/airing`, `/api/schedule`, and `/api/anime/:id` routes, while Wrangler makes
-the server-side requests to Jikan.
-
-The first uncached request can take several seconds because AniNow collects all
-required Jikan pages while respecting upstream pacing. If Jikan or
-MyAnimeList is temporarily unavailable, the API returns a structured JSON error
-and the UI displays Retry; a recent complete cache is served as stale data when
-available.
+The first uncached request may take several seconds while AniNow paginates the MAL airing ranking and current/previous seasonal datasets. Successful data is fresh-cached for about 30 minutes, retained as a last-known-good fallback for about 24 hours, and served as stale when a later refresh fails.
 
 ### Development fixture mode
 
-When Jikan is unavailable, run AniNow with realistic normalized fixtures:
+To work without live MAL access:
 
 ```sh
 npm run dev:mock
 ```
 
-Then open `http://localhost:4174`. Rankings, schedule, and detail pages continue
-to call the same `/api/...` routes and receive the production response shape.
-The fixture dataset includes more than 20 ranked titles, multiple media types,
-genres and broadcast days, recently finished titles, unknown schedule fields,
-and unranked titles.
-
-Fixture mode is guarded in three ways: the explicit local-only binding from the
-command above, Wrangler's `CF_PAGES_BRANCH=local` environment, and a localhost
-request hostname. Production requests always use the normal cached Jikan path,
-even if the mock binding were mistakenly configured there. Fixture responses
-also use `Cache-Control: no-store` and cannot populate the production cache.
-
-To run a browser integration pass against the actual fixture-backed Pages
-Functions rather than intercepted API responses:
+The fixtures use the production normalized `/api/...` response shape and include more than 20 ranked TV titles, unranked TV titles, recent finishes, every weekday, and unknown/TBA broadcasts. Fixture mode requires the explicit mock binding, Wrangler’s local branch, and a localhost hostname. Its responses use `Cache-Control: no-store`, cannot populate the production cache, and cannot activate on a production hostname.
 
 ```sh
 npm run test:e2e:mock
@@ -65,13 +41,17 @@ npm run test:e2e:mock
 npm test
 npx playwright install chromium
 npm run test:e2e
+npm run test:e2e:mock
+npm run test:a11y
 ```
 
-The deterministic test suite mocks upstream and browser API responses. Production publishing and Cloudflare project setup are intentionally not included.
+The deterministic suites mock upstream and browser API responses. Deployment and production-secret configuration are intentionally outside this repository workflow.
 
 ## Data and privacy
 
-The browser calls same-origin `/api/...` routes only. The UI has no accounts, analytics, cookies, or persistent favorites. Theme choice is stored for the current browser session only. Remote cover art is loaded from MyAnimeList's image host.
+The browser calls same-origin `/api/...` routes only. The UI has no accounts, analytics, cookies, or persistent favorites. Theme choice is stored for the current browser session only. Remote cover art is loaded from MyAnimeList’s image host.
+
+Anime data provided by MyAnimeList. AniNow is not affiliated with or endorsed by MyAnimeList.
 
 ## Licensing
 

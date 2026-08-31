@@ -5,8 +5,8 @@ import { countdownText, fetchJson } from '../../js/app.js';
 
 const items = [
   { title: 'Beta', titleRomaji: 'Bēta', score: 8, scoredBy: 100, popularity: 0, members: 30, airedFrom: null, type: 'TV', genres: ['Drama'], broadcastDay: 'Fridays' },
-  { title: 'Alpha', titleRomaji: 'Arufa', score: 7, scoredBy: 900, popularity: 5, members: 50, airedFrom: '2026-08-01T00:00:00Z', type: 'ONA', genres: ['Action'], broadcastDay: null },
-  { title: 'Gamma', titleRomaji: 'Ganma', score: 9, scoredBy: 10, popularity: null, members: 10, airedFrom: '2026-08-20T00:00:00Z', type: 'OVA', genres: ['Drama'], broadcastDay: 'Mondays' }
+  { title: 'Alpha', titleRomaji: 'Arufa', score: 7, scoredBy: 900, popularity: 5, members: 50, airedFrom: '2026-08-01T00:00:00Z', type: 'TV', genres: ['Action'], broadcastDay: null },
+  { title: 'Gamma', titleRomaji: 'Ganma', score: 9, scoredBy: 10, popularity: null, members: 10, airedFrom: '2026-08-20T00:00:00Z', type: 'TV', genres: ['Drama'], broadcastDay: 'Mondays' }
 ];
 
 test('implements every alternative sort with invalid popularity last', () => {
@@ -18,9 +18,9 @@ test('implements every alternative sort with invalid popularity last', () => {
 });
 
 test('searches display and romaji titles and combines filters', () => {
-  const filters = { search: 'gan', type: 'OVA', genre: 'Drama', day: 'Monday', sort: 'score' };
+  const filters = { search: 'gan', genre: 'Drama', day: 'Monday', sort: 'score' };
   assert.deepEqual(filterAnime(items, filters).map(x => x.title), ['Gamma']);
-  assert.equal(isDefaultView({ search: '', type: 'all', genre: 'all', day: 'all', sort: 'score' }), true);
+  assert.equal(isDefaultView({ search: '', genre: 'all', day: 'all', sort: 'score' }), true);
 });
 
 test('countdown derives from timestamps and clamps at zero', () => {

@@ -5,11 +5,12 @@ import { onRequestGet as getAiring } from '../../functions/api/airing.js';
 import { onRequestGet as getSchedule } from '../../functions/api/schedule.js';
 import { onRequestGet as getDetail } from '../../functions/api/anime/[id].js';
 
-const localEnv = { ANINOW_DEV_MOCK: '1', CF_PAGES_BRANCH: 'local' };
+const localEnv = { ANINOW_DEV_MOCK: '1', CF_PAGES_BRANCH: 'local', MAL_CLIENT_ID: 'client-id' };
 const localRequest = path => new Request(`http://127.0.0.1:4174${path}`);
 
 test('mock activation requires its binding, Wrangler local branch, and localhost', () => {
   assert.equal(isDevelopmentMockRequest(localRequest('/api/airing'), localEnv), true);
+  assert.equal(isDevelopmentMockRequest(localRequest('/api/airing'), { ...localEnv, ANINOW_DEV_MOCK: 1 }), true);
   assert.equal(isDevelopmentMockRequest(localRequest('/api/airing'), { ...localEnv, ANINOW_DEV_MOCK: undefined }), false);
   assert.equal(isDevelopmentMockRequest(localRequest('/api/airing'), { ...localEnv, CF_PAGES_BRANCH: 'main' }), false);
   assert.equal(isDevelopmentMockRequest(new Request('https://aninow.pages.dev/api/airing'), localEnv), false);
@@ -17,7 +18,7 @@ test('mock activation requires its binding, Wrangler local branch, and localhost
 
 test('mock airing endpoint has enough normalized ranked, finished, and unranked entries', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => { throw new Error('Mock mode must never contact Jikan'); };
+  globalThis.fetch = async () => { throw new Error('Mock mode must never contact MyAnimeList'); };
   try {
     const response = await getAiring({ request: localRequest('/api/airing'), env: localEnv });
     const payload = await response.json();
@@ -28,6 +29,7 @@ test('mock airing endpoint has enough normalized ranked, finished, and unranked 
     assert.ok(ranked.length > 20);
     assert.ok(unranked.length >= 3);
     assert.ok(payload.data.some(item => item.status === 'Finished Airing' && item.graceEndsAt));
+    assert.ok(payload.data.every(item => item.type === 'TV'));
     assert.deepEqual(ranked.map(item => item.rank), Array.from({ length: ranked.length }, (_, index) => index + 1));
     assert.deepEqual(Object.keys(payload.meta).sort(), ['expiresAt', 'stale', 'updatedAt']);
   } finally { globalThis.fetch = originalFetch; }
@@ -57,7 +59,7 @@ test('mock detail endpoint returns full fixture details and a normal 404', async
 
 test('mock binding cannot activate on a production hostname', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => new Response(JSON.stringify({ data: [], pagination: { has_next_page: false } }), { status: 200, headers: { 'content-type': 'application/json' } });
+  globalThis.fetch = async () => new Response(JSON.stringify({ data: [], paging: {} }), { status: 200, headers: { 'content-type': 'application/json' } });
   try {
     const response = await getAiring({ request: new Request('https://aninow.pages.dev/api/airing'), env: localEnv });
     const payload = await response.json();

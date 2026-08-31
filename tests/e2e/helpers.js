@@ -10,7 +10,7 @@ export function makeAnime(index, overrides = {}) {
     scoredBy: 50000 - index * 100,
     popularity: index,
     members: 100000 - index * 500,
-    type: index % 3 === 0 ? 'ONA' : index % 5 === 0 ? 'OVA' : 'TV',
+    type: 'TV',
     genres: index % 2 ? ['Drama'] : ['Action'],
     broadcastDay: index % 2 ? 'Fridays' : 'Mondays',
     ...overrides

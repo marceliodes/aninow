@@ -51,7 +51,7 @@ const iso = value => new Date(value).toISOString();
 
 function buildSummary([title, titleRomaji], index, now, unranked = false) {
   const malId = 900001 + index;
-  const type = index % 7 === 0 ? 'OVA' : index % 4 === 0 ? 'ONA' : 'TV';
+  const type = 'TV';
   const finishedOffset = index === 6 ? 3 : index === 22 ? 10 : null;
   const finished = finishedOffset !== null;
   const airedToTime = finished ? now - finishedOffset * DAY : null;
@@ -69,7 +69,7 @@ function buildSummary([title, titleRomaji], index, now, unranked = false) {
     type,
     studio: STUDIOS[index % STUDIOS.length],
     studios: [STUDIOS[index % STUDIOS.length]],
-    episodes: type === 'OVA' ? 4 : type === 'ONA' ? 10 : index % 5 === 0 ? 24 : 12,
+    episodes: index % 5 === 0 ? 24 : 12,
     status: finished ? 'Finished Airing' : 'Currently Airing',
     airing: !finished,
     airedFrom: iso(now - (18 + index * 4) * DAY),
@@ -92,7 +92,6 @@ export function developmentAiring(now = Date.now()) {
 
 export function developmentSchedule(now = Date.now()) {
   return developmentAiring(now)
-    .filter(item => item.airing)
     .map(item => ({ ...item, rank: null }));
 }
 

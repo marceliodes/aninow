@@ -20,7 +20,6 @@ function showLoadingRows() {
 
 const currentFilters = () => ({
   search: document.querySelector('#search').value,
-  type: document.querySelector('#type-filter').value,
   genre: document.querySelector('#genre-filter').value,
   day: document.querySelector('#day-filter').value,
   sort: document.querySelector('#sort').value

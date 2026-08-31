@@ -12,7 +12,8 @@ test('development fixture mode drives rankings, filters, sorting, and Load More'
   await expect(page.locator('#ranking-list .rank-row')).toHaveCount(24);
   await expect(page.getByRole('button', { name: 'Load 20 more' })).toBeHidden();
 
-  await page.getByLabel('Type').selectOption('OVA');
+  await expect(page.getByLabel('Type')).toHaveCount(0);
+  await page.getByLabel('Genre').selectOption('Action');
   await expect(page.locator('#featured')).toBeHidden();
   await expect(page.locator('#result-count')).toContainText('ranked');
   await page.getByRole('button', { name: 'Reset' }).click();

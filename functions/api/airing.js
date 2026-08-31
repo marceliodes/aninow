@@ -6,6 +6,6 @@ import { errorResponse, json } from '../_lib/http.js';
 
 export async function onRequestGet({ request, env = {} }) {
   if (isDevelopmentMockRequest(request, env)) return json(developmentPayload(developmentAiring()), 200, 'no-store');
-  try { return json(await cachedDataset({ request, name: 'airing', loader: () => loadAiring() })); }
+  try { return json(await cachedDataset({ request, name: 'airing', loader: () => loadAiring({ clientId: env.MAL_CLIENT_ID }) })); }
   catch (error) { return errorResponse(error); }
 }

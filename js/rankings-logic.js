@@ -31,12 +31,11 @@ export function filterAnime(items, filters) {
   return items.filter(item => {
     const day = item.broadcastDay ? item.broadcastDay.replace(/s$/, '') : 'Unknown';
     return (!query || [item.title, item.titleRomaji].some(value => value?.toLocaleLowerCase().includes(query))) &&
-      (filters.type === 'all' || item.type === filters.type) &&
       (filters.genre === 'all' || item.genres.includes(filters.genre)) &&
       (filters.day === 'all' || day === filters.day);
   });
 }
 
 export function isDefaultView(filters) {
-  return filters.search === '' && filters.type === 'all' && filters.genre === 'all' && filters.day === 'all' && filters.sort === 'score';
+  return filters.search === '' && filters.genre === 'all' && filters.day === 'all' && filters.sort === 'score';
 }

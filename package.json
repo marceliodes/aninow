@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "WRANGLER_LOG_PATH=/tmp/aninow-wrangler.log npx wrangler pages dev . --port 4174 --local-protocol http",
-    "dev:mock": "WRANGLER_LOG_PATH=/tmp/aninow-wrangler-mock.log npx wrangler pages dev . --port 4174 --local-protocol http --binding ANINOW_DEV_MOCK=1",
+    "dev:mock": "WRANGLER_LOG_PATH=/tmp/aninow-wrangler-mock.log npx wrangler pages dev . --port 4174 --local-protocol http --binding ANINOW_DEV_MOCK=1 --binding CF_PAGES_BRANCH=local",
     "test": "node --test tests/unit/*.test.js tests/functions/*.test.js",
     "test:e2e": "playwright test",
     "test:e2e:mock": "playwright test --config=playwright.mock.config.js",

@@ -1,4 +1,4 @@
-const VERSION = 'v2';
+const VERSION = 'mal-v1';
 export const FRESH_MS = 30 * 60 * 1000;
 export const STALE_MS = 24 * 60 * 60 * 1000;
 export const RETRY_MS = 5 * 60 * 1000;
