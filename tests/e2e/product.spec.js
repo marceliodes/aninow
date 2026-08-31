@@ -199,13 +199,34 @@ test('schedule groups localized times and detail renders local facts and safe MA
   await expect(page.getByRole('link', { name: /View on MyAnimeList/ })).toHaveAttribute('href', /^https:\/\/myanimelist\.net\/anime\//);
 });
 
-test('privacy explains visitor-facing data behavior without maintenance wording', async ({ page }) => {
+test('privacy and shared navigation explain visitor-facing behavior and link to the repository', async ({ page }) => {
   await page.goto('/privacy.html');
-  const text = await page.locator('main').innerText();
-  for (const fact of ['no accounts', 'submission forms', 'first-party analytics', 'sessionStorage', 'official MyAnimeList API', 'Cover images', 'external title link']) {
+  const main = page.locator('main');
+  const text = await main.innerText();
+  expect(text).toContain('AniNow does not collect, track, sell, or store personal information.');
+  expect(text).toContain('Last updated: September 2026');
+  for (const fact of ['no accounts', 'submission forms', 'advertising trackers', 'sessionStorage', 'current tab session', 'not sent to AniNow', 'server-side code', 'server-only Client ID', 'Cover images', 'directly from MyAnimeList’s image host', 'external title link', 'privacy practices apply']) {
     expect(text).toContain(fact);
   }
+  const privacyContact = main.getByRole('link', { name: 'open an issue on GitHub' });
+  await expect(privacyContact).toHaveAttribute('href', 'https://github.com/marceliodes/aninow/issues');
+  await expect(privacyContact).toHaveAttribute('target', '_blank');
+  await expect(privacyContact).toHaveAttribute('rel', 'noopener noreferrer');
+  expect(text).not.toMatch(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
+  await expect(page.locator('a[href^="mailto:"]')).toHaveCount(0);
   expect(text).not.toMatch(/V1 implementation|as shipped|should be revised/i);
+
+  const primaryNavigation = page.getByRole('navigation', { name: 'Primary' });
+  await expect(primaryNavigation.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about.html');
+
+  const footer = page.getByRole('contentinfo');
+  await expect(footer).toContainText('Anime data provided by MyAnimeList. AniNow is not affiliated with or endorsed by MyAnimeList.');
+  await expect(footer.getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy.html');
+  const repositoryLink = footer.getByRole('link', { name: 'GitHub' });
+  await expect(repositoryLink).toHaveAttribute('href', 'https://github.com/marceliodes/aninow');
+  await expect(repositoryLink).toHaveAttribute('target', '_blank');
+  await expect(repositoryLink).toHaveAttribute('rel', 'noopener noreferrer');
+  await expect(footer.getByRole('link', { name: 'About' })).toHaveCount(0);
 });
 
 test('invalid detail ID and mobile layout avoid horizontal overflow', async ({ page }, testInfo) => {
