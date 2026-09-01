@@ -4,7 +4,7 @@ import { detectVisitorTimeZone, localBroadcast } from './broadcast-time.js';
 const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const board = document.querySelector('#schedule-board');
 const stateBox = document.querySelector('#schedule-state');
-let stopCountdown = () => {};
+let stopFreshness = () => {};
 let hasSuccessfulSchedule = false;
 
 function entryMarkup(item) {
@@ -33,8 +33,8 @@ async function load() {
     const payload = await fetchJson('/api/schedule');
     render(payload.data);
     hasSuccessfulSchedule = true;
-    stopCountdown();
-    stopCountdown = setupFreshness(payload.meta, { onExpire: load });
+    stopFreshness();
+    stopFreshness = setupFreshness(payload.meta, { onExpire: load });
   } catch (error) {
     if (hasSuccessfulSchedule && error.retryable !== false) {
       showState(stateBox, {

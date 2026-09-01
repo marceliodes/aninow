@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { filterAnime, isDefaultView, sortAnime } from '../../js/rankings-logic.js';
-import { countdownText, fetchJson } from '../../js/app.js';
+import { fetchJson } from '../../js/app.js';
 
 const items = [
   { title: 'Beta', titleRomaji: 'Bēta', score: 8, scoredBy: 100, popularity: 0, members: 30, airedFrom: null, type: 'TV', genres: ['Drama'], localBroadcast: { day: 'Friday' } },
@@ -21,11 +21,6 @@ test('searches display and romaji titles and combines filters', () => {
   const filters = { search: 'gan', genre: 'Drama', day: 'Monday', sort: 'score' };
   assert.deepEqual(filterAnime(items, filters).map(x => x.title), ['Gamma']);
   assert.equal(isDefaultView({ search: '', genre: 'all', day: 'all', sort: 'score' }), true);
-});
-
-test('countdown derives from timestamps and clamps at zero', () => {
-  assert.equal(countdownText('2026-08-30T12:02:05Z', Date.parse('2026-08-30T12:00:00Z')), '02:05');
-  assert.equal(countdownText('2026-08-30T11:00:00Z', Date.parse('2026-08-30T12:00:00Z')), '00:00');
 });
 
 test('non-JSON API responses explain that Wrangler is required for local Pages Functions', async () => {

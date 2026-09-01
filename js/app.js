@@ -29,33 +29,18 @@ export function formatDate(value, options = { dateStyle: 'medium' }) {
   return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat(undefined, options).format(date);
 }
 
-export function countdownText(timestamp, now = Date.now()) {
-  if (!timestamp) return '--:--';
-  const seconds = Math.max(0, Math.ceil((new Date(timestamp).getTime() - now) / 1000));
-  if (!Number.isFinite(seconds)) return '--:--';
-  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
-}
-
 export function setupFreshness(meta, { onExpire } = {}) {
-  const countdown = document.querySelector('#countdown');
   const status = document.querySelector('#freshness-status');
   const updated = document.querySelector('#last-updated');
-  if (!countdown || !status || !updated) return () => {};
+  if (!status || !updated) return () => {};
   status.textContent = meta.stale ? 'Stale data · retry scheduled' : 'Fresh AniNow dataset';
   status.classList.toggle('stale', Boolean(meta.stale));
   updated.textContent = `Updated ${formatDate(meta.updatedAt, { dateStyle: 'medium', timeStyle: 'short' })}`;
   const target = meta.stale && meta.retryAt ? meta.retryAt : meta.expiresAt;
-  let fired = false;
-  const tick = () => {
-    countdown.textContent = countdownText(target);
-    if (!fired && new Date(target).getTime() <= Date.now()) {
-      fired = true;
-      onExpire?.();
-    }
-  };
-  tick();
-  const timer = setInterval(tick, 1000);
-  return () => clearInterval(timer);
+  const delay = new Date(target).getTime() - Date.now();
+  if (!onExpire || !Number.isFinite(delay)) return () => {};
+  const timer = setTimeout(onExpire, Math.max(0, delay));
+  return () => clearTimeout(timer);
 }
 
 export async function fetchJson(path) {

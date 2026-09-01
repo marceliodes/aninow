@@ -79,7 +79,7 @@ Preserve:
 - non-destructive refresh failure when valid content is already rendered;
 - full error state only when no usable data exists.
 
-UI shows last successful update, `mm:ss` countdown, and stale/failure status where applicable. At expiry, the browser automatically requests refreshed AniNow data while backend caching remains authoritative.
+UI shows the last successful update and stale/failure status where applicable. When freshness expires, the browser automatically requests refreshed AniNow data while backend caching remains authoritative.
 
 "Live/current" means periodically refreshed, not second-by-second real-time MAL updates.
 
@@ -402,12 +402,12 @@ Requirements:
 
 Production must never silently display fake fixture anime.
 
-## Countdown
-Derive `mm:ss` from server-provided timestamps.
+## Background refresh
+Schedule the next refresh from server-provided timestamps.
 
-At zero, request refreshed AniNow data and let backend caching remain authoritative.
+At expiry, request refreshed AniNow data and let backend caching remain authoritative.
 
-After background-tab suspension, recalculate from timestamps rather than blindly decrement an old integer.
+After background-tab suspension, request expired data promptly when the browser resumes execution.
 
 ## Performance and accessibility
 No frontend framework/CDN libraries.
@@ -452,8 +452,7 @@ Do not imply sponsorship or endorsement.
 - [ ] English/romaji in-dataset search works.
 - [ ] Weekly schedule derives from MAL `broadcast` data.
 - [ ] Top-three treatment + #1 blurred backdrop/fallback works.
-- [ ] `mm:ss` freshness/retry countdown works.
-- [ ] Automatic countdown expiry respects cache.
+- [ ] Automatic background refresh respects cache.
 - [ ] Rankings/schedule/detail retain rendered content on later retryable refresh failure.
 - [ ] Dynamic detail page uses official MAL data.
 - [ ] About/methodology reflects TV-only official-MAL architecture.

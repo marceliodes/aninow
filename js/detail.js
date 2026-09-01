@@ -4,7 +4,7 @@ import { localBroadcast } from './broadcast-time.js';
 const article = document.querySelector('#anime-detail');
 const stateBox = document.querySelector('#detail-state');
 const id = new URLSearchParams(location.search).get('id');
-let stopCountdown = () => {};
+let stopFreshness = () => {};
 let hasSuccessfulDetail = false;
 
 function fact(label, value) { return `<div class="fact"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value ?? 'Unknown')}</dd></div>`; }
@@ -45,8 +45,8 @@ async function load() {
     const payload = await fetchJson(`/api/anime/${id}`);
     render(payload.data, payload.meta);
     hasSuccessfulDetail = true;
-    stopCountdown();
-    stopCountdown = setupFreshness(payload.meta, { onExpire: load });
+    stopFreshness();
+    stopFreshness = setupFreshness(payload.meta, { onExpire: load });
   } catch (error) {
     if (hasSuccessfulDetail && error.retryable !== false) {
       showState(stateBox, {
@@ -58,8 +58,8 @@ async function load() {
       });
       return;
     }
-    stopCountdown();
-    stopCountdown = () => {};
+    stopFreshness();
+    stopFreshness = () => {};
     article.hidden = true;
     showState(stateBox, { title: error.status === 404 ? 'Anime unavailable' : 'Details could not load', message: error.message, retry: error.retryable === false ? null : load, error: true });
   }

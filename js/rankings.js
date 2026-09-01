@@ -11,7 +11,7 @@ const loadMore = document.querySelector('#load-more');
 const controls = document.querySelector('#ranking-controls');
 let dataset = [];
 let visible = 20;
-let stopCountdown = () => {};
+let stopFreshness = () => {};
 let hasSuccessfulDataset = false;
 
 function showLoadingRows() {
@@ -90,8 +90,8 @@ async function load() {
     dataset = payload.data.map(item => ({ ...item, localBroadcast: localBroadcast(item) }));
     hasSuccessfulDataset = true;
     if (document.querySelector('#genre-filter').options.length === 1) populateGenres();
-    stopCountdown();
-    stopCountdown = setupFreshness(payload.meta, { onExpire: load });
+    stopFreshness();
+    stopFreshness = setupFreshness(payload.meta, { onExpire: load });
     render();
   } catch (error) {
     if (hasSuccessfulDataset && error.retryable !== false) {
@@ -104,8 +104,8 @@ async function load() {
       });
       return;
     }
-    stopCountdown();
-    stopCountdown = () => {};
+    stopFreshness();
+    stopFreshness = () => {};
     hasSuccessfulDataset = false;
     dataset = [];
     list.innerHTML = '';

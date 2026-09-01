@@ -87,8 +87,8 @@ Privacy belongs in the footer.
 
 Keep it compact; ranking content should appear quickly.
 
-Show the hero line, short explanation, last-updated time, `mm:ss`
-refresh countdown, and freshness indicator.
+Show the hero line, short explanation, last-updated time, and freshness
+indicator.
 
 ## Dynamic #1 artwork
 
@@ -174,8 +174,6 @@ animation.
 
 Allowed: skeleton shimmer, subtle top-three/update motion, small value
 transitions, theme transition, live pulse, and normal control feedback.
-
-Countdown updates every second as `mm:ss`.
 
 Avoid scroll-jacking, particles, bouncing cards, or every row flying
 into view. Respect `prefers-reduced-motion`.

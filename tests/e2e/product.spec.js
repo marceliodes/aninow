@@ -76,7 +76,7 @@ test('manual Refresh is absent on every page', async ({ page }) => {
   }
 });
 
-test('countdown expiry automatically re-requests AniNow data', async ({ page }) => {
+test('freshness expiry automatically re-requests AniNow data', async ({ page }) => {
   let calls = 0;
   await page.route('**/api/airing', route => {
     calls += 1;
@@ -165,13 +165,14 @@ test('detail retains successful data when a later refresh fails', async ({ page 
   await expect(page.getByText('Details could not load')).toBeHidden();
 });
 
-test('detail shows shared freshness timestamps and countdown', async ({ page }) => {
+test('freshness timestamps remain visible without a countdown', async ({ page }) => {
   await mockApis(page);
-  await page.goto('/anime.html?id=1');
-  await expect(page.locator('#freshness-status')).toHaveText('Fresh AniNow dataset');
-  await expect(page.locator('#last-updated')).toContainText('Updated');
-  await expect(page.locator('#countdown')).toHaveText(/^\d{2}:\d{2}$/);
-  await expect(page.locator('#countdown')).not.toHaveText('--:--');
+  for (const path of ['/', '/schedule.html', '/anime.html?id=1']) {
+    await page.goto(path);
+    await expect(page.locator('#freshness-status')).toHaveText('Fresh AniNow dataset');
+    await expect(page.locator('#last-updated')).toContainText('Updated');
+    await expect(page.locator('#countdown')).toHaveCount(0);
+  }
 });
 
 test('stale detail response labels freshness and keeps details usable', async ({ page }) => {
@@ -179,7 +180,6 @@ test('stale detail response labels freshness and keeps details usable', async ({
   await page.goto('/anime.html?id=1');
   await expect(page.locator('#freshness-status')).toHaveText('Stale data · retry scheduled');
   await expect(page.locator('.detail-kicker')).toContainText('Stale data');
-  await expect(page.locator('#countdown')).toHaveText(/^\d{2}:\d{2}$/);
   await expect(page.getByRole('heading', { name: 'Anime Title 01' })).toBeVisible();
 });
 
