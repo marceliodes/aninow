@@ -29,6 +29,20 @@ export function formatDate(value, options = { dateStyle: 'medium' }) {
   return Number.isNaN(date.getTime()) ? 'Unknown' : new Intl.DateTimeFormat(undefined, options).format(date);
 }
 
+export function animeMetaDescription(item, maxLength = 160) {
+  const title = String(item?.title || 'Anime').trim();
+  const synopsis = typeof item?.synopsis === 'string' ? item.synopsis.replace(/\s+/g, ' ').trim() : '';
+  const description = synopsis
+    ? `${title}: ${synopsis}`
+    : `View available details for ${title}, including its MyAnimeList score, broadcast schedule, studio, episode count, status, and AniNow rank.`;
+  if (description.length <= maxLength) return description;
+  const limit = Math.max(1, maxLength - 1);
+  const candidate = description.slice(0, limit).trimEnd();
+  const wordBoundary = candidate.lastIndexOf(' ');
+  const shortened = wordBoundary >= Math.floor(limit * .6) ? candidate.slice(0, wordBoundary) : candidate;
+  return `${shortened}…`;
+}
+
 export function setupFreshness(meta, { onExpire } = {}) {
   const status = document.querySelector('#freshness-status');
   const updated = document.querySelector('#last-updated');
@@ -91,9 +105,9 @@ function initializeShell() {
     if (element.content.startsWith('/')) element.content = new URL(element.content, location.origin).href;
   });
   const header = document.querySelector('[data-header]');
-  if (header) header.innerHTML = `<div class="shell header-inner"><a class="brand" href="/index.html" aria-label="AniNow home">AniNow<span class="brand-dot" aria-hidden="true"></span></a><nav class="primary-nav" aria-label="Primary"><a href="/index.html" ${page === 'rankings' ? 'aria-current="page"' : ''}>Rankings</a><a href="/schedule.html" ${page === 'schedule' ? 'aria-current="page"' : ''}>Schedule</a><a href="/about.html" ${page === 'about' ? 'aria-current="page"' : ''}>About</a></nav><div class="header-actions"><button class="icon-button" type="button" data-theme-toggle aria-label="Toggle theme">◐</button></div></div>`;
+  if (header) header.innerHTML = `<div class="shell header-inner"><a class="brand" href="/" aria-label="AniNow home">AniNow<span class="brand-dot" aria-hidden="true"></span></a><nav class="primary-nav" aria-label="Primary"><a href="/" ${page === 'rankings' ? 'aria-current="page"' : ''}>Rankings</a><a href="/schedule" ${page === 'schedule' ? 'aria-current="page"' : ''}>Schedule</a><a href="/about" ${page === 'about' ? 'aria-current="page"' : ''}>About</a></nav><div class="header-actions"><button class="icon-button" type="button" data-theme-toggle aria-label="Toggle theme">◐</button></div></div>`;
   const footer = document.querySelector('[data-footer]');
-  if (footer) footer.innerHTML = `<div class="shell footer-inner"><p class="footer-copy"><strong>AniNow</strong> · Anime data provided by MyAnimeList. AniNow is not affiliated with or endorsed by MyAnimeList.</p><nav class="footer-links" aria-label="Footer"><a href="/privacy.html">Privacy</a><a href="https://github.com/marceliodes/aninow" target="_blank" rel="noopener noreferrer">GitHub</a></nav></div>`;
+  if (footer) footer.innerHTML = `<div class="shell footer-inner"><p class="footer-copy"><strong>AniNow</strong> · Anime data provided by MyAnimeList. AniNow is not affiliated with or endorsed by MyAnimeList.</p><nav class="footer-links" aria-label="Footer"><a href="/privacy">Privacy</a><a href="https://github.com/marceliodes/aninow" target="_blank" rel="noopener noreferrer">GitHub</a></nav></div>`;
   const preferred = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   applyTheme(getStoredTheme() || preferred);
   document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {

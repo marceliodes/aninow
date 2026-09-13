@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { filterAnime, isDefaultView, sortAnime } from '../../js/rankings-logic.js';
-import { fetchJson } from '../../js/app.js';
+import { animeMetaDescription, fetchJson } from '../../js/app.js';
 
 const items = [
   { title: 'Beta', titleRomaji: 'Bēta', score: 8, scoredBy: 100, popularity: 0, members: 30, airedFrom: null, type: 'TV', genres: ['Drama'], localBroadcast: { day: 'Friday' } },
@@ -28,4 +28,19 @@ test('non-JSON API responses explain that Wrangler is required for local Pages F
   globalThis.fetch = async () => new Response('<!doctype html>', { status: 404, headers: { 'content-type': 'text/html' } });
   try { await assert.rejects(fetchJson('/api/airing'), /Run the site with Wrangler/); }
   finally { globalThis.fetch = originalFetch; }
+});
+
+test('builds concise anime descriptions from real detail data with an accurate fallback', () => {
+  assert.equal(
+    animeMetaDescription({ title: 'Signal Days', synopsis: 'A precise\n  fixture synopsis.' }),
+    'Signal Days: A precise fixture synopsis.'
+  );
+  const longDescription = animeMetaDescription({ title: 'Signal Days', synopsis: 'A very long synopsis '.repeat(20) });
+  assert.ok(longDescription.length <= 160);
+  assert.match(longDescription, /…$/);
+  assert.ok(['A', 'very', 'long', 'synopsis'].includes(longDescription.slice(0, -1).split(' ').at(-1)));
+  assert.match(
+    animeMetaDescription({ title: 'Signal Days', synopsis: null }),
+    /^View available details for Signal Days, including its MyAnimeList score/
+  );
 });

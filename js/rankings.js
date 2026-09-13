@@ -33,13 +33,13 @@ function statusText(item) {
 
 function rowMarkup(item, unranked = false) {
   const image = safeImageUrl(item.image);
-  const href = `/anime.html?id=${item.malId}`;
+  const href = `/anime?id=${item.malId}`;
   return `<article class="rank-row"><div class="rank-number">${unranked ? '—' : `#${item.rank}`}</div><a class="cover-link" href="${href}" tabindex="-1" aria-hidden="true">${image ? `<img class="rank-cover" src="${escapeHtml(image)}" alt="" width="48" height="72" loading="lazy">` : '<span class="rank-cover"></span>'}</a><div class="rank-title"><a href="${href}">${escapeHtml(item.title)}</a>${item.titleRomaji && item.titleRomaji !== item.title ? `<div class="romaji" lang="ja-Latn">${escapeHtml(item.titleRomaji)}</div>` : ''}<div class="row-status ${item.status === 'Finished Airing' ? 'status-finished' : 'status-airing'}">${escapeHtml(statusText(item))}</div></div><div class="cell score-cell"><strong>${item.score?.toFixed(2) ?? '—'}</strong><span>${item.score ? `${formatNumber(item.scoredBy)} votes` : 'Unscored'}</span></div><div class="cell"><strong>${escapeHtml(item.studio || 'Unknown')}</strong><span>Studio</span></div><div class="cell"><strong>${escapeHtml(item.type || '—')}</strong><span>${item.episodes ? `${item.episodes} eps` : 'Episodes ?'}</span></div><div class="cell"><strong>${escapeHtml(item.localBroadcast.day)}</strong><span>${escapeHtml(item.localBroadcast.time)}</span></div><div class="cell"><strong>${formatNumber(item.members)}</strong><span>Members</span></div></article>`;
 }
 
 function featuredMarkup(item, index) {
   const image = safeImageUrl(item.image);
-  return `<a class="featured-card" href="/anime.html?id=${item.malId}">${image ? `<img src="${escapeHtml(image)}" alt="Cover art for ${escapeHtml(item.title)}" width="74" height="111">` : '<span aria-hidden="true"></span>'}<span class="featured-info"><span class="featured-rank">RANK ${index + 1}</span><span class="featured-title">${escapeHtml(item.title)}</span><span class="featured-score"><span class="score-value">${item.score.toFixed(2)}</span><span class="score-label">MAL score</span></span></span></a>`;
+  return `<a class="featured-card" href="/anime?id=${item.malId}">${image ? `<img src="${escapeHtml(image)}" alt="Cover art for ${escapeHtml(item.title)}" width="74" height="111">` : '<span aria-hidden="true"></span>'}<span class="featured-info"><span class="featured-rank">RANK ${index + 1}</span><span class="featured-title">${escapeHtml(item.title)}</span><span class="featured-score"><span class="score-value">${item.score.toFixed(2)}</span><span class="score-label">MAL score</span></span></span></a>`;
 }
 
 function render() {

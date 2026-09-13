@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 test('development fixture mode drives rankings, filters, sorting, and Load More', async ({ page }) => {
   await page.route('https://cdn.myanimelist.net/**', route => route.abort());
-  await page.goto('/index.html');
+  await page.goto('/');
   await expect(page.locator('#result-count')).toHaveText('27 ranked · 3 unranked');
   await expect(page.locator('.featured-card')).toHaveCount(3);
   await expect(page.locator('#ranking-list .rank-row')).toHaveCount(17);
@@ -26,7 +26,7 @@ test('development fixture mode drives rankings, filters, sorting, and Load More'
 
 test('development fixture schedule links to a full fixture detail', async ({ page }) => {
   await page.route('https://cdn.myanimelist.net/**', route => route.abort());
-  await page.goto('/schedule.html');
+  await page.goto('/schedule');
   for (const day of ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','Unknown']) {
     await expect(page.getByRole('heading', { name: day })).toBeVisible();
   }
