@@ -31,6 +31,7 @@ export const normalizedAnime = (overrides = {}) => ({
   malId: 1, title: 'English One', titleRomaji: 'Romaji One', image: 'https://cdn.myanimelist.net/images/anime/1/1.webp', rank: 1,
   score: 8.5, scoredBy: 1200, popularity: 100, members: 50000, type: 'TV', studio: 'Signal Works', studios: ['Signal Works'], episodes: 12,
   status: 'Currently Airing', airing: true, airedFrom: '2026-07-01T00:00:00.000Z', airedTo: null, broadcastDay: 'Fridays', broadcastTime: '23:30', broadcastTimezone: 'Asia/Tokyo', genres: ['Drama'], malUrl: 'https://myanimelist.net/anime/1', graceEndsAt: null,
+  nextEpisodeNumber: null, nextAiringAt: null, airedEpisodes: null,
   ...overrides
 });
 

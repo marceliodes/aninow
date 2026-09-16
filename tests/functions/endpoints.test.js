@@ -25,13 +25,43 @@ test('structured upstream errors distinguish retryable and missing resources', a
   assert.equal((await failed.json()).error.retryable, true);
 });
 
+test('detail endpoint keeps MAL metadata and adds only validated next-airing fields', async () => {
+  const originalFetch = globalThis.fetch;
+  const future = Math.floor((Date.now() + 3_600_000) / 1000);
+  globalThis.fetch = async url => String(url).includes('graphql.anilist.co')
+    ? new Response(JSON.stringify({ data: { Page: { media: [{ idMal: 1, nextAiringEpisode: { episode: 6, airingAt: future } }] } } }), { status: 200 })
+    : new Response(JSON.stringify(rawAnime()), { status: 200 });
+  try {
+    const response = await detailEndpoint({
+      request: new Request('https://aninow.test/api/anime/1'),
+      params: { id: '1' },
+      env: { MAL_CLIENT_ID: 'client-id' }
+    });
+    const payload = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(payload.data.title, 'English One');
+    assert.equal(payload.data.score, 8.5);
+    assert.equal(payload.data.episodes, 12);
+    assert.equal(payload.data.nextEpisodeNumber, 6);
+    assert.equal(payload.data.airedEpisodes, 5);
+    assert.equal(payload.meta.supplemental, undefined);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test('schedule reuses the cached airing refresh and preserves its freshness metadata', async () => {
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;
-  let upstreamCalls = 0;
+  let malCalls = 0;
+  let aniListCalls = 0;
   globalThis.caches = { default: new MemoryCache() };
   globalThis.fetch = async url => {
-    upstreamCalls += 1;
+    if (String(url).includes('graphql.anilist.co')) {
+      aniListCalls += 1;
+      return new Response(JSON.stringify({ data: { Page: { media: [{ idMal: 1, nextAiringEpisode: { episode: 6, airingAt: Math.floor((Date.now() + 3_600_000) / 1000) } }] } } }), { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    malCalls += 1;
     const nodes = String(url).includes('/anime/ranking') ? [rawAnime()] : [];
     return new Response(JSON.stringify(malList(nodes)), { status: 200, headers: { 'content-type': 'application/json' } });
   };
@@ -39,13 +69,17 @@ test('schedule reuses the cached airing refresh and preserves its freshness meta
     const context = { env: { MAL_CLIENT_ID: 'client-id' } };
     const airing = await airingEndpoint({ ...context, request: new Request('https://aninow.test/api/airing') });
     const airingPayload = await airing.json();
-    assert.equal(upstreamCalls, 3);
+    assert.equal(malCalls, 3);
+    assert.equal(aniListCalls, 1);
     const schedule = await scheduleEndpoint({ ...context, request: new Request('https://aninow.test/api/schedule') });
     const schedulePayload = await schedule.json();
-    assert.equal(upstreamCalls, 3);
+    assert.equal(malCalls, 3);
+    assert.equal(aniListCalls, 1);
     assert.deepEqual(schedulePayload.meta, airingPayload.meta);
     assert.equal(schedulePayload.data[0].rank, null);
     assert.equal(airingPayload.data[0].rank, 1);
+    assert.equal(schedulePayload.data[0].broadcastDay, 'Fridays');
+    assert.equal(schedulePayload.data[0].nextEpisodeNumber, 6);
   } finally {
     globalThis.fetch = originalFetch;
     if (originalCaches === undefined) delete globalThis.caches;

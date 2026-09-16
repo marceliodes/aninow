@@ -90,6 +90,32 @@ Keep it compact; ranking content should appear quickly.
 Show the hero line, short explanation, last-updated time, and freshness
 indicator.
 
+## Data provenance and freshness
+
+MyAnimeList remains the visual and data backbone of every page. AniList
+may add only exact next-episode information to titles already selected
+by MAL. Do not let the supplemental source change titles, artwork,
+scores, ranking, eligibility, status, genres, or total episode count.
+
+Keep the two time concepts distinct:
+
+- The existing `mm:ss` freshness display counts down to AniNow's next
+  cache refresh.
+- A next-episode countdown counts down to an exact AniList
+  `nextAiringAt` timestamp.
+
+Label episode timing clearly enough that users do not read it as a MAL
+score or as the site refresh timer. A next-episode countdown may update
+in the browser from the cached absolute timestamp, but it must not
+advance the episode or create another weekly event when it reaches
+zero. Do not place every countdown tick in an ARIA live region; provide
+stable, readable timing text without repeated screen-reader announcements.
+
+Treat the timing sources as two different concepts: MAL `broadcast` is
+the regular weekly schedule, while AniList `nextAiringEpisode` is the
+actual upcoming episode event. The latter may reflect a delay, special,
+or irregular airing, but it never changes Schedule page grouping.
+
 ## Dynamic #1 artwork
 
 Use the current #1 anime artwork as a blurred atmospheric backdrop
@@ -121,13 +147,19 @@ After #3, transition to the dense standard list.
 
 Desktop vertical rows should prioritize: - rank - cover -
 English/display title - romaji title - MAL score - `scored_by` -
-studio - total episodes - next broadcast/day - type - status
+studio - MAL total episodes - next broadcast/day - type - status
 
 Not every field has equal weight. Score must be immediately scannable.
 Avoid making it look like a raw spreadsheet.
 
 Recently finished titles stay in the same ranking for 14 days. Show a
 restrained status such as `Finished · leaves AniNow in 9 days`.
+
+When reliable AniList enrichment exists, add a compact episode line such
+as `5 of 12 aired · Episode 6 in 2d 4h`. If MAL's total is unknown, do
+not manufacture a denominator. If AniList enrichment is unavailable,
+expired, or invalid, omit episode progress and retain the existing MAL
+broadcast/day treatment without an empty placeholder.
 
 ## Not Ranked Yet
 
@@ -145,21 +177,29 @@ Initial ranked view shows 20; Load More reveals more.
 ## Schedule
 
 Monday--Sunday should be easy to scan. Do not create seven giant
-decorative panels. Convert valid Japan broadcast times to the visitor's
-local weekday/time and label the detected timezone. Entries link to
-AniNow detail pages.
+decorative panels. The eligible title set, weekday grouping, and
+recurring time remain MAL-owned. Convert MAL's Japan broadcast fields to
+the visitor's local weekday/time and label the detected timezone. A
+valid AniList event may add the next episode number, exact local
+date/time, and countdown inside the existing entry. It must not move the
+entry when the exact event differs from the recurring schedule. Keep a
+title with missing MAL broadcast information in Unknown/TBA even when an
+AniList event exists. Make the two timing concepts visually distinct.
+Entries link to AniNow detail pages.
 
 ## Anime detail
 
 Prioritize titles, score/scored_by, status, studio, episode count,
-broadcast, season/year, genres, synopsis, artwork, and external MAL
-link. No embedded/autoplay trailer.
+broadcast, reliable next-episode progress/countdown when available,
+season/year, genres, synopsis, artwork, and external MAL link. Keep the
+MAL total and AniList progress visually distinct. No embedded/autoplay
+trailer.
 
 ## About and privacy
 
 About is editorial/methodological, not marketing-heavy. Explain
-eligibility, ranking, 14-day grace, 30-minute cache, exclusions, and
-attribution.
+eligibility, ranking, 14-day grace, 30-minute cache, exclusions, MAL's
+authoritative role, AniList's limited next-airing role, and attribution.
 
 Privacy must match actual implementation. Do not invent legal claims or
 analytics practices.
@@ -183,6 +223,12 @@ into view. Respect `prefers-reduced-motion`.
 Use skeleton rows matching final geometry. On errors preserve useful
 structure, explain plainly, show Retry, last successful update when
 known, and stale-data status when relevant.
+
+An AniList-only failure is not a page-level error when MAL data is
+usable. Fall back to the MAL broadcast/status presentation. Show stale
+supplemental timing only while its exact event is still in the future;
+otherwise remove it. Do not show an error, warning, or notice for a
+supplemental-only failure.
 
 ## Responsive
 

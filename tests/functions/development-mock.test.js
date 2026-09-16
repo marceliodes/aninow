@@ -29,6 +29,8 @@ test('mock airing endpoint has enough normalized ranked, finished, and unranked 
     assert.ok(ranked.length > 20);
     assert.ok(unranked.length >= 3);
     assert.ok(payload.data.some(item => item.status === 'Finished Airing' && item.graceEndsAt));
+    assert.ok(payload.data.some(item => item.nextEpisodeNumber && item.nextAiringAt && item.airedEpisodes != null));
+    assert.ok(payload.data.some(item => item.nextEpisodeNumber === null && item.nextAiringAt === null));
     assert.ok(payload.data.every(item => item.type === 'TV'));
     assert.deepEqual(ranked.map(item => item.rank), Array.from({ length: ranked.length }, (_, index) => index + 1));
     assert.deepEqual(Object.keys(payload.meta).sort(), ['expiresAt', 'stale', 'updatedAt']);

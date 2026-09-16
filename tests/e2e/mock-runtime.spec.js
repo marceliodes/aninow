@@ -7,6 +7,8 @@ test('development fixture mode drives rankings, filters, sorting, and Load More'
   await expect(page.locator('.featured-card')).toHaveCount(3);
   await expect(page.locator('#ranking-list .rank-row')).toHaveCount(17);
   await expect(page.getByText('Comet Post Office')).toBeVisible();
+  await expect(page.locator('.row-next-airing').first()).toContainText(/Next episode \d+/);
+  await expect(page.locator('.row-next-airing').first()).not.toContainText(/\d+s/);
 
   await page.getByRole('button', { name: 'Load 20 more' }).click();
   await expect(page.locator('#ranking-list .rank-row')).toHaveCount(24);
@@ -30,8 +32,13 @@ test('development fixture schedule links to a full fixture detail', async ({ pag
   for (const day of ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','Unknown']) {
     await expect(page.getByRole('heading', { name: day })).toBeVisible();
   }
-  await page.locator('.schedule-entry').first().click();
+  const enrichedEntry = page.locator('.schedule-entry[href="/anime?id=900001"]');
+  await expect(enrichedEntry.locator('.schedule-time')).toContainText('Regular');
+  await expect(enrichedEntry.locator('.schedule-next-airing')).toContainText(/Next episode \d+/);
+  await enrichedEntry.click();
   await expect(page.locator('#anime-detail')).toHaveAttribute('aria-busy', 'false');
   await expect(page.locator('.detail-synopsis')).toContainText('development fixture content');
   await expect(page.locator('.rank-stat')).toContainText(/#\d+/);
+  await expect(page.locator('.detail-next-airing')).toContainText('Exact event');
+  await expect(page.locator('.fact').filter({ hasText: 'Regular broadcast' })).toBeVisible();
 });

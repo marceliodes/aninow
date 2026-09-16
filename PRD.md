@@ -7,7 +7,7 @@ AniNow is an open-source anime discovery website answering:
 
 AniNow ranks eligible **currently airing TV anime** by MyAnimeList score, keeps recently finished eligible TV titles in the same leaderboard for a 14-day grace period, and provides a weekly airing schedule.
 
-Data comes directly from the **official MyAnimeList API v2** through AniNow's Cloudflare serverless layer.
+Core anime data comes directly from the **official MyAnimeList API v2** through AniNow's Cloudflare serverless layer. AniList may supplement exact next-episode airing information when it can be matched reliably by MAL ID.
 
 AniNow is intended to remain useful beyond its portfolio role.
 
@@ -19,6 +19,7 @@ AniNow is intended to remain useful beyond its portfolio role.
 - Keep eligible unrated TV anime under **Not Ranked Yet**.
 - Genre/day filters, sorting, and in-dataset search.
 - Weekly schedule generated from the same eligible dataset.
+- Reliable next-episode number, aired-episode progress, and countdown when AniList supplies a valid exact airing event.
 - Dynamic anime detail pages.
 - ~30-minute freshness/cache cadence.
 - Last-known-good resilience during upstream outages.
@@ -27,10 +28,23 @@ AniNow is intended to remain useful beyond its portfolio role.
 ## Non-goals
 No accounts, MAL login/OAuth, watchlists, comments, AniNow ratings, streaming/piracy links, persistent favorites, global MAL search, movie rankings, ONA/OVA rankings, or recommendation engine.
 
-## Upstream provider
-AniNow V1 uses the **official MyAnimeList API v2** as its sole production anime-data provider.
+## Upstream providers and source authority
+The **official MyAnimeList API v2** remains AniNow's primary and authoritative provider. MAL owns discovery, eligibility, ranking, score, scoring-user count, titles, artwork, genres, status, total episode count, details, recurring broadcast fields, and every existing metadata field.
 
-Do not silently add Jikan, scraping, AniList, Kitsu, or another provider as fallback.
+AniList is an optional supplemental provider for episode-airing information that MAL does not reliably expose. AniNow may use only:
+- `idMal` as the cross-provider match key;
+- `nextAiringEpisode.episode` as the next episode number;
+- `nextAiringEpisode.airingAt` as the exact next airing timestamp;
+- `nextAiringEpisode.timeUntilAiring` only as a validation aid or short-lived upstream value, not as the durable source for a countdown.
+
+Source-of-truth rules:
+- Never use AniList to discover titles, determine eligibility, rank entries, or replace any MAL-owned field.
+- Match AniList records to AniNow records only when `idMal` exactly equals the MAL ID. Do not use title matching as the primary match or as an automatic fallback.
+- An absent, malformed, expired, mismatched, or contradictory AniList result produces no enrichment. Keep the MAL-derived presentation.
+- A valid next-airing event requires a positive integer episode number and a finite future `airingAt`. If MAL supplies a total, the next episode number must not exceed it.
+- Never estimate episode progress by adding one episode every seven days or by projecting MAL's recurring broadcast time.
+- Never fabricate or clamp episode numbers or timestamps. AniList enrichment must not overwrite MAL's `num_episodes`; an unknown MAL total remains unknown.
+- Do not silently add Jikan, scraping, Kitsu, or another provider as fallback.
 
 ## Authentication
 Cloudflare authenticates MAL requests using server-side:
@@ -53,21 +67,23 @@ Browser
 Cloudflare Pages frontend
   ↓ /api/...
 Cloudflare Pages Function / Worker
+  ├─ primary path → Official MyAnimeList API v2
+  │                  ↓
+  │                normalize + eligibility/business rules
+  │                  ↓
+  │                primary cache + last-known-good snapshot
+  └─ optional path → AniList GraphQL API
+                     ↓ exact `idMal` match
+                   validate next-airing fields
+                     ↓
+                   separate supplemental cache/failure boundary
   ↓
-fresh AniNow cache?
-  ├─ yes → normalized cached JSON
-  └─ no
-       ↓
-Official MyAnimeList API v2
-       ↓
-normalize + eligibility/business rules
-       ↓
-cache + last-known-good snapshot
-       ↓
+merge valid optional enrichment into AniNow JSON
+  ↓
 frontend
 ```
 
-Frontend consumes AniNow's normalized API, not raw MAL responses.
+Frontend consumes AniNow's normalized API, not raw MAL or AniList responses. The browser never calls either provider directly.
 
 ## Refresh and resilience
 Preserve:
@@ -82,6 +98,10 @@ Preserve:
 UI shows the last successful update and stale/failure status where applicable. When freshness expires, the browser automatically requests refreshed AniNow data while backend caching remains authoritative.
 
 "Live/current" means periodically refreshed, not second-by-second real-time MAL updates.
+
+AniList enrichment uses a separate cache, retry suppression, and concurrent-request deduplication boundary. A failed AniList refresh must not fail, mark stale, or replace a successful MAL refresh, and AniList requests need a bounded timeout. Supplemental failures silently fall back to MAL-only output without a user-visible error or notice. The initial implementation should use the same approximate 30-minute fresh cadence unless provider behavior justifies a documented change. Last-known-good next-airing data may be reused only while its exact `airingAt` remains in the future and the match is still valid.
+
+The existing visible `mm:ss` timer continues to describe AniNow cache freshness. A future next-episode countdown is a separate UI value computed from the absolute `nextAiringAt` timestamp. Reaching zero may request a refresh through the normal cache path, but must never advance the episode locally or generate another timestamp by adding seven days.
 
 ## Eligibility
 Include only:
@@ -227,6 +247,16 @@ Initially render top **20** ranked results after current filter/sort/search stat
 | `start_season` | season/year |
 | `synopsis` | synopsis |
 
+## Supplemental AniList field mapping
+| AniList | AniNow | Rule |
+| --- | --- | --- |
+| `idMal` | `malId` match only | Must exactly equal the existing MAL ID |
+| `nextAiringEpisode.episode` | `nextEpisodeNumber` | Positive integer or `null` |
+| `nextAiringEpisode.airingAt` | `nextAiringAt` | Unix timestamp normalized to ISO-8601, or `null` |
+| derived from a valid next episode | `airedEpisodes` | `nextEpisodeNumber - 1`, otherwise `null` |
+
+`timeUntilAiring` may be checked against `airingAt` when validating the upstream response, but AniNow countdowns use `nextAiringAt - current time` so cached values do not drift. The supplemental fields are nullable and must disappear or become `null` when the event expires and no newer reliable event is available.
+
 Title behavior:
 - Prefer `alternative_titles.en` as main English/display title when available.
 - Use MAL `title` as romaji/main-source title.
@@ -243,13 +273,12 @@ Where available:
 - scoring-user count;
 - studio;
 - total episodes;
-- next broadcast day/time;
+- next broadcast day/time from MAL;
+- next episode number, aired-episode progress, and exact next-airing countdown when reliable AniList enrichment exists;
 - status;
 - members/popularity where useful.
 
-Do not implement "current episode number" unless a reliable low-cost method is explicitly validated.
-
-Never guess unknown totals.
+Episode progress may be shown only when it is derived directly from a valid AniList `nextAiringEpisode`: the aired count is one less than the next episode number. If that record is unavailable or expired, omit the progress value and use the existing MAL-derived presentation. Never guess unknown totals or replace MAL's total with AniList data.
 
 ## Top three
 #1–#3 receive restrained featured treatment but use the same ranking logic.
@@ -257,19 +286,20 @@ Never guess unknown totals.
 #1 artwork may become the blurred atmospheric top background without an extra request.
 
 ## Weekly schedule
-Build the schedule from the same eligible TV dataset:
+Build the schedule from the same MAL-owned eligible TV dataset:
 ```text
 eligible TV anime
   ↓
-broadcast.day_of_the_week
-broadcast.start_time
+MAL broadcast.day_of_the_week + broadcast.start_time
   ↓
 group Monday–Sunday
+  ↓
+optionally annotate with AniList's exact upcoming episode event
 ```
 
-Missing broadcast information goes to an Unknown/TBA state.
+MAL `broadcast` defines the regular weekly schedule and always controls Schedule page grouping. AniList must never add a title to the schedule or move it to another weekday. A delay, special airing, or irregular AniList event may change the displayed next episode number, exact date/time, progress, or countdown for that entry, but it does not change the entry's MAL-derived schedule group.
 
-The browser converts valid `Asia/Tokyo` broadcast weekdays and times to the visitor's local timezone. Local timezone labeling must be explicit; incomplete or invalid broadcast information remains Unknown/TBA.
+The browser converts valid MAL `Asia/Tokyo` broadcast weekdays and times to the visitor's local timezone for recurring schedule grouping. It separately converts AniList's absolute `nextAiringAt` for the exact upcoming-event annotation. If MAL broadcast information is incomplete or invalid, the title remains in the Unknown/TBA schedule group even when AniList supplies an exact next-airing event. Local timezone labeling must be explicit. Do not infer later occurrences from either source.
 
 ## Pages
 
@@ -280,19 +310,19 @@ Hero:
 > **What's airing? See who's on top.**
 
 ### `schedule.html`
-Monday–Sunday schedule derived from MAL `broadcast` data.
+Monday–Sunday recurring schedule for the MAL-owned eligible dataset, grouped only by MAL `broadcast` data.
 
-Show cover/title, broadcast time where available, useful status, and detail-page link.
+Show cover/title, recurring MAL broadcast time where available, reliable AniList next episode/date/time/countdown as separate supplemental information, useful status, and detail-page link. AniList event timing must not change the entry's schedule group.
 
 ### `anime.html?id=<MAL_ID>`
 Use the official MAL detail endpoint and request only needed fields.
 
-Display artwork, English/display title, romaji title, score, scoring-user count, AniNow rank if feasible, synopsis, genres, studios, TV type, episode total, broadcast, season/year, status, aired dates, external MAL link, and freshness/stale state.
+Display artwork, English/display title, romaji title, score, scoring-user count, AniNow rank if feasible, synopsis, genres, studios, TV type, MAL episode total, broadcast, reliable next-episode progress/countdown when available, season/year, status, aired dates, external MAL link, and freshness/stale state.
 
 No embedded trailer/autoplay. Trailer link not required for V1.
 
 ### `about.html`
-Explain TV-only scope, official MAL API v2 data source, score basis, scoring-user count, 14-day grace period, Not Ranked Yet behavior, 30-minute cache model, stale/outage behavior at a high level, and non-affiliation.
+Explain TV-only scope, MAL's primary and authoritative role, AniList's limited supplemental role, score basis, scoring-user count, 14-day grace period, Not Ranked Yet behavior, 30-minute cache model, stale/outage behavior at a high level, and non-affiliation.
 
 Remove Jikan attribution after it is removed from production code/data flow.
 
@@ -365,24 +395,33 @@ Example normalized item:
   "broadcastDay": "Wednesday",
   "broadcastTime": "22:00",
   "broadcastTimezone": "Asia/Tokyo",
+  "nextEpisodeNumber": 6,
+  "nextAiringAt": "2026-09-16T13:00:00.000Z",
+  "airedEpisodes": 5,
   "genres": ["Drama"]
 }
 ```
 
-Top-level responses continue exposing `updatedAt`, `expiresAt`, stale/freshness metadata, and retry metadata where applicable.
+The three supplemental fields are `null` when no valid AniList event exists. Existing fields keep their MAL meaning.
+
+Top-level responses continue exposing `updatedAt`, `expiresAt`, stale/freshness metadata, and retry metadata where applicable. Those existing fields retain their current primary dataset semantics. This release does not expose supplemental AniList freshness metadata because the frontend has no concrete need for it; an AniList outage cannot make fresh MAL data appear stale.
 
 ## Upstream strategy
 Requirements:
-- official MAL API v2 only for production V1;
+- official MAL API v2 as the primary and authoritative provider;
+- AniList GraphQL only for optional `nextAiringEpisode` enrichment matched by exact `idMal`;
 - server-side `MAL_CLIENT_ID`;
+- server-side provider calls only;
 - `fields=` to reduce extra calls;
 - careful pagination;
 - no N+1 leaderboard requests;
+- bounded/batched AniList lookups for currently airing MAL IDs;
 - normalization before browser responses;
-- successful-response caching;
-- last-known-good fallback;
+- separate successful-response caching and failure handling for primary and supplemental data;
+- MAL last-known-good fallback plus supplemental reuse only while a validated event remains in the future;
 - handling for timeouts, throttling, 4xx/5xx, malformed responses, and partial pagination failures;
 - failed/partial refreshes cannot poison good cache;
+- AniList failure silently degrades to MAL-only output without a user-visible error or notice;
 - conservative request pacing;
 - concurrent refresh deduplication where practical.
 
@@ -396,6 +435,7 @@ Requirements:
 - enough TV entries for Top 20 + Load More;
 - ranked, unranked, currently airing, and recently finished examples;
 - varied genres/days/studios/scores/popularity/member counts;
+- valid, absent, mismatched, malformed, and expired supplemental next-airing examples;
 - explicit local/development-only activation;
 - `no-store`;
 - impossible to activate accidentally in production.
@@ -424,13 +464,16 @@ AniNow is licensed under the **MIT License**.
 Preserve third-party asset/font license obligations.
 
 Production attribution:
-> Anime data provided by MyAnimeList. AniNow is not affiliated with or endorsed by MyAnimeList.
+> Anime rankings and metadata provided by MyAnimeList. Episode airing information may be supplemented by AniList. AniNow is not affiliated with or endorsed by MyAnimeList or AniList.
 
 Do not imply sponsorship or endorsement.
 
 ## V1 acceptance criteria
 - [ ] Cloudflare Pages + serverless API works.
-- [ ] Official MyAnimeList API v2 is the sole production anime-data provider.
+- [ ] Official MyAnimeList API v2 remains the primary and authoritative provider for discovery, eligibility, rankings, and existing metadata.
+- [ ] AniList is used only for optional `nextAiringEpisode` enrichment matched by exact `idMal`.
+- [ ] Missing or failed AniList enrichment preserves the existing MAL-derived presentation.
+- [ ] AniList cannot add titles, change eligibility/rankings, overwrite MAL fields, or fill unknown MAL episode totals.
 - [ ] `MAL_CLIENT_ID` remains server-side only.
 - [ ] `.dev.vars` remains gitignored.
 - [ ] AniNow normalizes official MAL fields into its stable API contract.
@@ -450,12 +493,15 @@ Do not imply sponsorship or endorsement.
 - [ ] Old TV/ONA/OVA Type filter is removed or simplified.
 - [ ] Score/popularity/members/newest/title sorts work.
 - [ ] English/romaji in-dataset search works.
-- [ ] Weekly schedule derives from MAL `broadcast` data.
+- [ ] Weekly schedule grouping and recurring time use MAL `broadcast` data only.
+- [ ] AniList next-airing events may annotate schedule entries but never add, remove, or move titles between schedule groups.
+- [ ] Episode progress is never advanced by a seven-day estimate.
+- [ ] Episode countdown expiry respects cache/backoff and never fabricates the next event.
 - [ ] Top-three treatment + #1 blurred backdrop/fallback works.
 - [ ] Automatic background refresh respects cache.
 - [ ] Rankings/schedule/detail retain rendered content on later retryable refresh failure.
-- [ ] Dynamic detail page uses official MAL data.
-- [ ] About/methodology reflects TV-only official-MAL architecture.
+- [ ] Dynamic detail page uses official MAL data with optional AniList next-airing enrichment.
+- [ ] About/methodology reflects the TV-only MAL-primary, AniList-supplemental architecture.
 - [ ] Privacy matches implementation.
 - [ ] OS-following light/dark theme + manual toggle works.
 - [ ] Skeleton, empty, error, Retry, stale, and warning states work.

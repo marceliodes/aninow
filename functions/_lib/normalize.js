@@ -73,6 +73,9 @@ export function normalizeAnime(anime, { now = new Date(), detail = false } = {})
     broadcastDay: broadcastDay(anime?.broadcast?.day_of_the_week),
     broadcastTime: text(anime?.broadcast?.start_time),
     broadcastTimezone: 'Asia/Tokyo',
+    nextEpisodeNumber: null,
+    nextAiringAt: null,
+    airedEpisodes: null,
     genres: [...new Set(names(anime.genres))],
     malUrl: `https://myanimelist.net/anime/${anime.id}`,
     graceEndsAt

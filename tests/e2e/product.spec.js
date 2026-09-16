@@ -161,6 +161,42 @@ test('freshness expiry automatically re-requests AniNow data', async ({ page }) 
   await expect.poll(() => calls).toBeGreaterThan(1);
 });
 
+test('rankings and detail show exact next-episode progress without seconds', async ({ page }) => {
+  const nextAiringAt = new Date(Date.now() + 36 * 60 * 60_000).toISOString();
+  const enriched = { ...dataset[3], nextEpisodeNumber: 6, airedEpisodes: 5, nextAiringAt };
+  const enrichedDetail = { ...detail, nextEpisodeNumber: 6, airedEpisodes: 5, nextAiringAt };
+  await mockApis(page, { airing: [...dataset.slice(0, 3), enriched, ...dataset.slice(4)], detailData: enrichedDetail });
+  await page.goto('/');
+  const row = page.locator('.rank-row').filter({ hasText: enriched.title }).first();
+  await expect(row).toContainText('5 of 12 aired');
+  await expect(row).toContainText('Next episode 6');
+  const rankingCountdown = await row.locator('[data-next-countdown]').innerText();
+  expect(rankingCountdown).toMatch(/^in (?:\d+d ?)?(?:\d+h ?)?(?:\d+m)?$/);
+  expect(rankingCountdown).not.toMatch(/\d+s/);
+
+  await page.goto('/anime?id=1');
+  await expect(page.locator('.detail-next-airing')).toContainText('Next episode');
+  await expect(page.locator('.detail-next-airing')).toContainText('Episode 6');
+  await expect(page.locator('.detail-next-airing')).toContainText('5 of 12 aired');
+  expect(await page.locator('.detail-next-airing [data-next-countdown]').innerText()).not.toMatch(/\d+s/);
+});
+
+test('countdown expiry refreshes once and removes an expired event without estimating another', async ({ page }) => {
+  let calls = 0;
+  const expiring = { ...dataset[3], nextEpisodeNumber: 6, airedEpisodes: 5, nextAiringAt: new Date(Date.now() + 2500).toISOString() };
+  await page.route('**/api/airing', route => {
+    calls += 1;
+    const data = calls === 1 ? [...dataset.slice(0, 3), expiring, ...dataset.slice(4)] : dataset;
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data, meta: freshness() }) });
+  });
+  await page.goto('/');
+  await expect(page.locator('.row-next-airing')).toHaveCount(1);
+  await expect.poll(() => calls).toBe(2);
+  await expect(page.locator('.row-next-airing')).toHaveCount(0);
+  await page.waitForTimeout(250);
+  expect(calls).toBe(2);
+});
+
 test('friendly ranking error retries and empty filter state is useful', async ({ page }) => {
   let calls = 0;
   await page.route('**/api/airing', route => {
@@ -268,8 +304,33 @@ test('schedule groups localized times and detail renders local facts and safe MA
   await page.locator('.schedule-entry').first().click();
   await expect(page.getByRole('heading', { name: 'Anime Title 01' })).toBeVisible();
   await expect(page.getByText('A current series used for deterministic browser testing.')).toBeVisible();
-  await expect(page.locator('.fact').filter({ hasText: 'Broadcast' })).toContainText(/local time/);
+  await expect(page.locator('.fact').filter({ hasText: 'Regular broadcast' })).toContainText(/local time/);
   await expect(page.getByRole('link', { name: /View on MyAnimeList/ })).toHaveAttribute('href', /^https:\/\/myanimelist\.net\/anime\//);
+});
+
+test('AniList event weekday never changes the MAL-derived recurring schedule group', async ({ page }) => {
+  const eventTime = Date.now() + 36 * 60 * 60_000;
+  const eventDay = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', weekday: 'long' }).format(new Date(eventTime));
+  const useMondayBroadcast = eventDay !== 'Sunday';
+  const scheduleDay = useMondayBroadcast ? 'Mondays' : 'Tuesdays';
+  const expectedLocalGroup = useMondayBroadcast ? 'Sunday' : 'Monday';
+  const enriched = {
+    ...dataset[0],
+    broadcastDay: scheduleDay,
+    broadcastTime: '00:30',
+    nextEpisodeNumber: 6,
+    airedEpisodes: 5,
+    nextAiringAt: new Date(eventTime).toISOString()
+  };
+  await mockApis(page, { schedule: [enriched] });
+  await page.goto('/schedule');
+  const recurringGroup = page.locator('.schedule-day').filter({ has: page.getByRole('heading', { name: expectedLocalGroup, exact: true }) });
+  await expect(recurringGroup.locator('.schedule-entry')).toHaveCount(1);
+  await expect(recurringGroup.locator('.schedule-time')).toContainText('Regular');
+  await expect(recurringGroup.locator('.schedule-next-airing')).toContainText('Next episode 6');
+  await expect(recurringGroup.locator('.schedule-next-airing')).toContainText('5 of 12 aired');
+  const eventGroup = page.locator('.schedule-day').filter({ has: page.getByRole('heading', { name: eventDay, exact: true }) });
+  if (eventDay !== expectedLocalGroup) await expect(eventGroup.locator('.schedule-entry')).toHaveCount(0);
 });
 
 test('privacy and shared navigation explain visitor-facing behavior and link to the repository', async ({ page }) => {
@@ -278,7 +339,7 @@ test('privacy and shared navigation explain visitor-facing behavior and link to 
   const text = await main.innerText();
   expect(text).toContain('AniNow does not collect, track, sell, or store personal information.');
   expect(text).toContain('Last updated: September 2026');
-  for (const fact of ['no accounts', 'submission forms', 'advertising trackers', 'sessionStorage', 'current tab session', 'not sent to AniNow', 'server-side code', 'server-only Client ID', 'Cover images', 'directly from MyAnimeList’s image host', 'external title link', 'privacy practices apply']) {
+  for (const fact of ['no accounts', 'submission forms', 'advertising trackers', 'sessionStorage', 'current tab session', 'not sent to AniNow', 'server-side code', 'server-only Client ID', 'may contact AniList', 'Cover images', 'directly from MyAnimeList’s image host', 'external title link', 'privacy practices apply']) {
     expect(text).toContain(fact);
   }
   const privacyContact = main.getByRole('link', { name: 'open an issue on GitHub' });
@@ -293,7 +354,7 @@ test('privacy and shared navigation explain visitor-facing behavior and link to 
   await expect(primaryNavigation.getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about');
 
   const footer = page.getByRole('contentinfo');
-  await expect(footer).toContainText('Anime data provided by MyAnimeList. AniNow is not affiliated with or endorsed by MyAnimeList.');
+  await expect(footer).toContainText('Rankings and anime metadata provided by MyAnimeList. Episode airing information may be supplemented by AniList. AniNow is not affiliated with or endorsed by either service.');
   await expect(footer.getByRole('link', { name: 'Privacy' })).toHaveAttribute('href', '/privacy');
   const repositoryLink = footer.getByRole('link', { name: 'GitHub' });
   await expect(repositoryLink).toHaveAttribute('href', 'https://github.com/marceliodes/aninow');

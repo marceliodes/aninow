@@ -1,6 +1,6 @@
 # AniNow
 
-AniNow is a framework-free, multi-page site for discovering currently airing TV anime, recently finished TV titles, and weekly broadcast schedules. Cloudflare Pages Functions retrieve anime data from the official MyAnimeList API v2, normalize it, and cache it for the frontend.
+AniNow is a framework-free, multi-page site for discovering currently airing TV anime, recently finished TV titles, and weekly broadcast schedules. Cloudflare Pages Functions retrieve primary anime data from the official MyAnimeList API v2 and may supplement exact next-episode timing from AniList using exact MAL ID matches.
 
 ## Local development
 
@@ -33,7 +33,7 @@ To run AniNow locally:
 
 Wrangler runs the Cloudflare Pages Functions that serve `/api/airing`, `/api/schedule`, and `/api/anime/:id`. A static-only server cannot execute these routes. The Client ID remains in the server-side Cloudflare environment. AniNow does not send it to browser code or include it in API responses.
 
-The first uncached request can take several seconds while AniNow paginates the MAL airing ranking and the current and previous seasonal datasets. AniNow caches successful data as fresh for about 30 minutes and retains it as a last-known-good fallback for about 24 hours. If a later refresh fails, AniNow serves the fallback data as stale.
+The first uncached request can take several seconds while AniNow paginates the MAL airing ranking and the current and previous seasonal datasets. AniNow caches successful MAL data as fresh for about 30 minutes and retains it as a last-known-good fallback for about 24 hours. Optional AniList next-airing requests use a separate cache and silently fall back to MAL-only output if unavailable.
 
 ### Development fixture mode
 
@@ -43,7 +43,7 @@ To run the site without live MAL access, start the fixture server:
 npm run dev:mock
 ```
 
-The fixtures use the normalized `/api/...` response shape from production. They include more than 20 ranked TV titles, unranked TV titles, recently finished titles, every weekday, and unknown or TBA broadcasts.
+The fixtures use the normalized `/api/...` response shape from production. They include more than 20 ranked TV titles, unranked TV titles, recently finished titles, every weekday, unknown or TBA broadcasts, and optional next-airing examples.
 
 Fixture mode activates only when `ANINOW_DEV_MOCK=1`, `CF_PAGES_BRANCH=local`, and the request uses a localhost hostname. Fixture responses use `Cache-Control: no-store`, cannot populate the production cache, and cannot activate on a production hostname.
 
@@ -76,7 +76,7 @@ The deterministic suites mock upstream and browser API responses. This repositor
 
 The browser calls only same-origin `/api/...` routes. The UI has no accounts, analytics, cookies, or persistent favorites. AniNow stores the theme choice only for the current browser session. It loads remote cover art from MyAnimeList's image host.
 
-Anime data provided by MyAnimeList. AniNow is not affiliated with or endorsed by MyAnimeList.
+Rankings and anime metadata provided by MyAnimeList. Episode airing information may be supplemented by AniList. AniNow is not affiliated with or endorsed by either service.
 
 ## Licensing
 

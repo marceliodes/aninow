@@ -8,7 +8,7 @@ AniNow is an open-source, multi-page anime discovery site focused on one questio
 Before substantial work, read `PRD.md` for product/data behavior and `DESIGN.md` for visual direction.
 
 ## Stack
-Use semantic HTML5, CSS3, vanilla JavaScript, Cloudflare Pages, Cloudflare Pages Functions/Workers, and the official MyAnimeList API v2 as the sole production anime-data provider.
+Use semantic HTML5, CSS3, vanilla JavaScript, Cloudflare Pages, Cloudflare Pages Functions/Workers, the official MyAnimeList API v2 as the primary and authoritative provider, and AniList only for supplemental next-episode airing information.
 
 Do not introduce React, Vue, Svelte, Angular, Next.js, Tailwind, Bootstrap, or another frontend framework unless explicitly requested.
 
@@ -17,16 +17,18 @@ The browser calls AniNow's own `/api/...` endpoints.
 
 The Cloudflare layer must:
 - call the official MyAnimeList API v2;
+- optionally call AniList server-side for `nextAiringEpisode` enrichment;
 - authenticate with server-side `MAL_CLIENT_ID`;
 - normalize MAL responses into AniNow-specific JSON;
+- match AniList records only by exact `idMal` and keep that enrichment optional;
 - apply eligibility/business rules;
 - cache successful responses;
 - retain last-known-good data;
 - handle upstream failures defensively.
 
-The frontend must not call MyAnimeList directly.
+The frontend must not call MyAnimeList or AniList directly.
 
-Do not silently add Jikan, scraping, AniList, Kitsu, or another provider as fallback.
+Do not use AniList as a fallback for MAL-owned data. Do not silently add Jikan, scraping, Kitsu, or another provider as fallback.
 
 ## Credentials
 Local development uses `.dev.vars`.
@@ -58,13 +60,15 @@ Recently finished:
 - deduplicate by MAL ID.
 
 Schedule:
-- derive Monday–Sunday schedule from the eligible dataset's `broadcast` fields;
-- do not depend on a separate schedule provider.
+- derive the eligible title set from MAL;
+- derive recurring weekday grouping and time from MAL `broadcast` fields;
+- use a valid AniList event only as an exact upcoming-episode annotation;
+- never let AniList add, remove, or move a title between schedule groups.
 
 Avoid N+1 requests. Do not fetch one detail record per leaderboard item merely to fill normal list metadata.
 
 ## Normalized API contract
-Keep frontend code insulated from raw MAL fields.
+Keep frontend code insulated from raw provider fields.
 
 Typical mapping:
 ```text
@@ -86,6 +90,8 @@ start_date            → airedFrom
 end_date              → airedTo
 start_season          → season/year
 synopsis              → synopsis
+AniList idMal         → exact malId match only
+nextAiringEpisode     → optional nextEpisodeNumber / nextAiringAt / airedEpisodes
 ```
 
 Preserve AniNow's existing `/api/...` response shape unless an explicit product requirement requires a change.
@@ -100,9 +106,9 @@ Preserve the established release behavior:
 - non-destructive refresh failures when usable content already exists;
 - full error state only when no usable data exists.
 
-Automatic countdown expiry and Retry requests must respect cache and must not hammer MAL.
+Automatic countdown expiry and Retry requests must respect cache and must not hammer either provider.
 
-The visible `mm:ss` countdown reflects AniNow cache freshness, not second-by-second MAL freshness.
+The visible `mm:ss` countdown reflects AniNow cache freshness, not second-by-second provider freshness. A future episode countdown is separate and derives from the absolute `nextAiringAt` value.
 
 ## Eligibility
 AniNow V1 is **TV anime only**.
@@ -121,6 +127,8 @@ Remote anime artwork returned by MAL is expected and exempt. Do not commit copyr
 ## Data integrity
 Never invent MAL scores, scoring-user counts, popularity/members, studios, broadcast times, episode totals, dates, or rankings.
 
+Never estimate episode progress by adding seven days, fabricate next-airing events, fill an unknown MAL total from AniList, or match AniList records by title when `idMal` is unavailable.
+
 Use MAL's supplied score/weighting. Do not invent a custom minimum-vote threshold or rating formula.
 
 ## Licensing and attribution
@@ -128,10 +136,10 @@ AniNow is released under the MIT License.
 
 Preserve third-party license notices, including local font licensing.
 
-AniNow must not imply affiliation with or endorsement by MyAnimeList.
+AniNow must not imply affiliation with or endorsement by MyAnimeList or AniList.
 
 Production wording may use:
-> Anime data provided by MyAnimeList. AniNow is not affiliated with or endorsed by MyAnimeList.
+> Anime rankings and metadata provided by MyAnimeList. Episode airing information may be supplemented by AniList. AniNow is not affiliated with or endorsed by MyAnimeList or AniList.
 
 Remove Jikan attribution only after Jikan is fully removed from the production code/data path.
 
@@ -167,7 +175,11 @@ Test at minimum:
 - 14-day finished grace;
 - deduplication;
 - unranked behavior;
-- schedule grouping from `broadcast`;
+- schedule grouping from MAL `broadcast` regardless of AniList event timing;
+- exact next-airing annotations that do not move schedule entries;
+- exact `idMal` matching and AniList next-airing normalization;
+- supplemental cache isolation and MAL-only fallback;
+- expired/missing/contradictory next-airing behavior;
 - cache/stale fallback;
 - upstream errors;
 - mock fixture safety;

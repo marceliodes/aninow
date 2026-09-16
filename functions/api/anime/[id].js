@@ -1,4 +1,5 @@
 import { cachedDataset, readLastSuccess } from '../../_lib/cache.js';
+import { enrichWithNextAirings } from '../../_lib/airing-enrichment.js';
 import { developmentDetail, developmentPayload } from '../../_fixtures/dev-data.js';
 import { isDevelopmentMockRequest } from '../../_lib/development.js';
 import { loadDetail } from '../../_lib/loaders.js';
@@ -16,6 +17,8 @@ export async function onRequestGet({ request, params, env = {} }) {
   try {
     const cachedAiring = await readLastSuccess('airing', request);
     const rank = cachedAiring?.data?.find(item => item.malId === id)?.rank ?? null;
-    return json(await cachedDataset({ request, name: `anime-${id}`, loader: () => loadDetail(id, { clientId: env.MAL_CLIENT_ID, aniNowRank: rank }) }));
+    const payload = await cachedDataset({ request, name: `anime-${id}`, loader: () => loadDetail(id, { clientId: env.MAL_CLIENT_ID, aniNowRank: rank }) });
+    const [data] = await enrichWithNextAirings([payload.data], { request, scope: 'detail' });
+    return json({ ...payload, data });
   } catch (error) { return errorResponse(error); }
 }

@@ -1,5 +1,6 @@
 import { escapeHtml, fetchJson, formatDate, formatNumber, safeImageUrl, setupFreshness, showState } from './app.js';
 import { localBroadcast } from './broadcast-time.js';
+import { nextAiringInfo, watchNextAirings } from './next-airing.js';
 import { filterAnime, isDefaultView, sortAnime } from './rankings-logic.js';
 
 const list = document.querySelector('#ranking-list');
@@ -12,6 +13,7 @@ const controls = document.querySelector('#ranking-controls');
 let dataset = [];
 let visible = 20;
 let stopFreshness = () => {};
+let stopNextAirings = () => {};
 let hasSuccessfulDataset = false;
 
 function showLoadingRows() {
@@ -31,10 +33,16 @@ function statusText(item) {
   return item.status || 'Status unknown';
 }
 
+function nextAiringMarkup(item) {
+  const next = nextAiringInfo(item);
+  if (!next) return '';
+  return `<div class="next-airing row-next-airing" data-next-airing-at="${escapeHtml(next.timestamp)}"><span>${escapeHtml(next.progress)}</span><span>${escapeHtml(next.episodeLabel)} · ${escapeHtml(next.exactTime)} · <span data-next-countdown>${escapeHtml(next.countdown)}</span></span></div>`;
+}
+
 function rowMarkup(item, unranked = false) {
   const image = safeImageUrl(item.image);
   const href = `/anime?id=${item.malId}`;
-  return `<article class="rank-row"><div class="rank-number">${unranked ? '—' : `#${item.rank}`}</div><a class="cover-link" href="${href}" tabindex="-1" aria-hidden="true">${image ? `<img class="rank-cover" src="${escapeHtml(image)}" alt="" width="48" height="72" loading="lazy">` : '<span class="rank-cover"></span>'}</a><div class="rank-title"><a href="${href}">${escapeHtml(item.title)}</a>${item.titleRomaji && item.titleRomaji !== item.title ? `<div class="romaji" lang="ja-Latn">${escapeHtml(item.titleRomaji)}</div>` : ''}<div class="row-status ${item.status === 'Finished Airing' ? 'status-finished' : 'status-airing'}">${escapeHtml(statusText(item))}</div></div><div class="cell score-cell"><strong>${item.score?.toFixed(2) ?? '—'}</strong><span>${item.score ? `${formatNumber(item.scoredBy)} votes` : 'Unscored'}</span></div><div class="cell"><strong>${escapeHtml(item.studio || 'Unknown')}</strong><span>Studio</span></div><div class="cell"><strong>${escapeHtml(item.type || '—')}</strong><span>${item.episodes ? `${item.episodes} eps` : 'Episodes ?'}</span></div><div class="cell"><strong>${escapeHtml(item.localBroadcast.day)}</strong><span>${escapeHtml(item.localBroadcast.time)}</span></div><div class="cell"><strong>${formatNumber(item.members)}</strong><span>Members</span></div></article>`;
+  return `<article class="rank-row"><div class="rank-number">${unranked ? '—' : `#${item.rank}`}</div><a class="cover-link" href="${href}" tabindex="-1" aria-hidden="true">${image ? `<img class="rank-cover" src="${escapeHtml(image)}" alt="" width="48" height="72" loading="lazy">` : '<span class="rank-cover"></span>'}</a><div class="rank-title"><a href="${href}">${escapeHtml(item.title)}</a>${item.titleRomaji && item.titleRomaji !== item.title ? `<div class="romaji" lang="ja-Latn">${escapeHtml(item.titleRomaji)}</div>` : ''}<div class="row-status ${item.status === 'Finished Airing' ? 'status-finished' : 'status-airing'}">${escapeHtml(statusText(item))}</div>${nextAiringMarkup(item)}</div><div class="cell score-cell"><strong>${item.score?.toFixed(2) ?? '—'}</strong><span>${item.score ? `${formatNumber(item.scoredBy)} votes` : 'Unscored'}</span></div><div class="cell"><strong>${escapeHtml(item.studio || 'Unknown')}</strong><span>Studio</span></div><div class="cell"><strong>${escapeHtml(item.type || '—')}</strong><span>${item.episodes ? `${item.episodes} eps` : 'Episodes ?'}</span></div><div class="cell"><strong>${escapeHtml(item.localBroadcast.day)}</strong><span>Regular · ${escapeHtml(item.localBroadcast.time)}</span></div><div class="cell"><strong>${formatNumber(item.members)}</strong><span>Members</span></div></article>`;
 }
 
 function featuredMarkup(item, index) {
@@ -68,6 +76,8 @@ function render() {
   if (!filtered.length) showState(stateBox, dataset.length === 0
     ? { title: 'No eligible titles right now', message: 'AniNow loaded successfully, but the current dataset is empty.' }
     : { title: 'No titles match', message: 'Try clearing a filter or using a different title search.' });
+  stopNextAirings();
+  stopNextAirings = watchNextAirings(document, { onExpire: load });
 }
 
 function populateGenres() {
@@ -106,6 +116,8 @@ async function load() {
     }
     stopFreshness();
     stopFreshness = () => {};
+    stopNextAirings();
+    stopNextAirings = () => {};
     hasSuccessfulDataset = false;
     dataset = [];
     list.innerHTML = '';

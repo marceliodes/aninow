@@ -17,6 +17,9 @@ test('normalizes MAL v2 fields, title fallback, dates, broadcast, and missing va
   assert.equal(item.status, 'Currently Airing');
   assert.equal(item.broadcastDay, 'Fridays');
   assert.equal(item.broadcastTimezone, 'Asia/Tokyo');
+  assert.equal(item.nextEpisodeNumber, null);
+  assert.equal(item.nextAiringAt, null);
+  assert.equal(item.airedEpisodes, null);
   assert.deepEqual(item.genres, ['Drama']);
   assert.equal(item.malUrl, 'https://myanimelist.net/anime/1');
   assert.equal(normalizeAnime(rawAnime({ alternative_titles: {} }), { now }).title, 'Romaji One');

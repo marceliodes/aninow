@@ -16,6 +16,15 @@ test('cache hits avoid loaders and simultaneous misses deduplicate', async () =>
   await cachedDataset(args); assert.equal(calls, 1);
 });
 
+test('cache accepts a data-dependent fresh lifetime', async () => {
+  clearInflightForTests(); let clock = 0; const cache = new MemoryCache(() => clock); let calls = 0;
+  const args = { request: new Request('https://aninow.test/api/dynamic'), name: 'dynamic', cache, now: () => clock, freshMs: data => data.ttl, loader: async () => ({ ttl: 1000, value: ++calls }) };
+  const first = await cachedDataset(args);
+  assert.equal(first.meta.expiresAt, '1970-01-01T00:00:01.000Z');
+  clock = 999; await cachedDataset(args); assert.equal(calls, 1);
+  clock = 1001; await cachedDataset(args); assert.equal(calls, 2);
+});
+
 test('failed refresh serves last success stale and suppresses retries for five minutes', async () => {
   clearInflightForTests(); let clock = 0; const cache = new MemoryCache(() => clock); let calls = 0;
   const request = new Request('https://aninow.test/api/airing');

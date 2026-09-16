@@ -56,6 +56,8 @@ function buildSummary([title, titleRomaji], index, now, unranked = false) {
   const finished = finishedOffset !== null;
   const airedToTime = finished ? now - finishedOffset * DAY : null;
   const score = unranked ? null : Number((9.31 - index * 0.09).toFixed(2));
+  const hasNextAiring = !finished && index % 4 === 0;
+  const nextEpisodeNumber = hasNextAiring ? 6 + (index % 3) : null;
   return {
     malId,
     title,
@@ -77,6 +79,9 @@ function buildSummary([title, titleRomaji], index, now, unranked = false) {
     broadcastDay: index === 25 ? null : DAYS[index % DAYS.length],
     broadcastTime: index % 9 === 0 ? null : TIMES[index % TIMES.length],
     broadcastTimezone: 'Asia/Tokyo',
+    nextEpisodeNumber,
+    nextAiringAt: hasNextAiring ? iso(now + (20 + index) * HOUR) : null,
+    airedEpisodes: nextEpisodeNumber === null ? null : nextEpisodeNumber - 1,
     genres: GENRES[index % GENRES.length],
     malUrl: null,
     graceEndsAt: finished ? iso(airedToTime + 14 * DAY) : null
